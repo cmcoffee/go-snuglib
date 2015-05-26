@@ -1,4 +1,4 @@
-// Package 'snugo/eflag' is a wrapper around Go's standard flag, it provides enhancments for:
+// Package 'eflag' is a wrapper around Go's standard flag, it provides enhancments for:
 // Adding Header's and Footer's to Usage.
 // Adding Aliases to flags. (ie.. -d, --debug)
 // Enhances formatting for flag usage.
