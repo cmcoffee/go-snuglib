@@ -3,8 +3,22 @@
     import "github.com/cmcoffee/go-cfg"
 
 Package 'cfg' provides functions for reading and writing configuration files and
-their coresponding string values. Ignores '#' as comment lines, ','s denote
-multiple values.
+their coresponding string values.
+
+    Ignores '#' as comment lines, ','s denote multiple values.
+
+    # Example config file.
+    [header]
+    key = value
+    key2 = value1, value2
+    key3 = value1,
+           value2,
+           value3
+
+    [header2]
+    key = value1,
+          value2,
+          value3
 
 ## Usage
 
