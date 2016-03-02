@@ -1,6 +1,6 @@
 # eflag
 --
-    import "snughub.org/go/eflag"
+    import "github.com/cmcoffee/go-eflag"
 
 Package 'eflag' is a wrapper around Go's standard flag, it provides
 enhancments for: Adding Header's and Footer's to Usage. Adding Aliases to flags.

@@ -27,7 +27,7 @@ const (
 // Write to nothing, to remove standard output of flag.
 type _voidText struct{}
 var voidText _voidText 
-func (self _voidText) Write(p []byte) (n int, err error) {
+func (s _voidText) Write(p []byte) (n int, err error) {
 		return len(p), nil
 }
 
@@ -48,8 +48,8 @@ func CommandLine() *EFlagSet {
 }
 
 // Change where output will be directed.
-func (self *EFlagSet) SetOutput(output io.Writer) {
-	self.out = output
+func (s *EFlagSet) SetOutput(output io.Writer) {
+	s.out = output
 }
 
 // Load a flag created with flag package.
@@ -67,25 +67,33 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *EFlagSet {
 }
 
 // Reads through all flags available and outputs with better formatting.
-func (self *EFlagSet) PrintDefaults() {
+func (s *EFlagSet) PrintDefaults() {
 	
-	output := tabwriter.NewWriter(self.out, 34, 8, 1, ' ', 0)
+	output := tabwriter.NewWriter(s.out, 34, 8, 1, ' ', 0)
 	
 	fmt.Fprintf(output, "  -h, --help\tPrints usage\n")
 		
-	self.VisitAll(func(flag *flag.Flag) {
+	s.VisitAll(func(flag *flag.Flag) {
 		if flag.Usage == "" { return }
 		var text []string
 		name := flag.Name
-		alias := self.alias[flag.Name]
-		is_string := self.stringVars[flag.Name]
-		if len(name) > 1 {
-			text = append(text, fmt.Sprintf("  --%s", name))
-		} else {
-			text = append(text, fmt.Sprintf("  -%s", name))
-		}
+		alias := s.alias[flag.Name]
+		is_string := s.stringVars[flag.Name]
 		if alias != "" {
-			text = append(text, fmt.Sprintf(", --%s", alias))
+			if len(alias) > 1 {
+				text = append(text, fmt.Sprintf("  --%s,", alias))
+			} else {
+				text = append(text, fmt.Sprintf("  -%s,", alias))
+			}
+		}
+		space := " "
+		if alias == "" {
+			space = "  "
+		}
+ 		if len(name) > 1 {
+			text = append(text, fmt.Sprintf("%s--%s", space, name))
+		} else {
+			text = append(text, fmt.Sprintf("%s-%s", space, name))
 		}
 		if is_string == true {
 			text = append(text, fmt.Sprintf("=%q", flag.DefValue))
@@ -102,48 +110,48 @@ func (self *EFlagSet) PrintDefaults() {
 }
 
 // Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.
-func (self *EFlagSet) Alias(val interface{}, name string, alias string) {
-	flag := self.Lookup(name)
+func (s *EFlagSet) Alias(val interface{}, name string, alias string) {
+	flag := s.Lookup(name)
 	if flag == nil { return }
 	switch v := val.(type) {
 		case *bool:
-			self.BoolVar(v, alias, *v, "")
+			s.BoolVar(v, alias, *v, "")
 		case *time.Duration:
-			self.DurationVar(v, alias, *v, "")
+			s.DurationVar(v, alias, *v, "")
 		case *float64:
-			self.Float64Var(v, alias, *v, "")
+			s.Float64Var(v, alias, *v, "")
 		case *int:
-			self.IntVar(v, alias, *v, "")
+			s.IntVar(v, alias, *v, "")
 		case *int64:
-			self.Int64Var(v, alias, *v, "")
+			s.Int64Var(v, alias, *v, "")
 		case *string:
-			self.StringVar(v, alias, *v, "")
+			s.StringVar(v, alias, *v, "")
 		case *uint:
-			self.UintVar(v, alias, *v, "")
+			s.UintVar(v, alias, *v, "")
 		case *uint64:
-			self.Uint64Var(v, alias, *v, "")
+			s.Uint64Var(v, alias, *v, "")
 		default:
-			self.Var(flag.Value, alias, "")
+			s.Var(flag.Value, alias, "")
 			
 	}
-	self.alias[name] = alias
+	s.alias[name] = alias
 }
 
 // Wraps around the standard flag Parse, adds header and footer.
-func (self *EFlagSet) Parse(args...string) (err error) {
+func (s *EFlagSet) Parse(args...string) (err error) {
 	if len(args) == 0 {
 		args = os.Args[1:]
 	}
 	
 	// set usage to empty to prevent unessisary work as we dump the output of flag.
-	self.Usage = func() {}
+	s.Usage = func() {}
 
 	// Allows for multiple switches when single '-' is used.
 	for n, arg := range args {
 		if !strings.HasPrefix(arg, "-") { break } // Is not a modifier, but a command.
 		if strings.HasPrefix(arg, "--") { continue }
-		if self.Lookup(arg) != nil { continue } 
-		if _, ok := self.alias[arg]; ok { continue }
+		if s.Lookup(arg) != nil { continue } 
+		if _, ok := s.alias[arg]; ok { continue }
 		arg = strings.TrimLeft(arg, "-")
 		var newArgs []string
 		
@@ -161,31 +169,31 @@ func (self *EFlagSet) Parse(args...string) (err error) {
 	}
 	
 	// Remove normal error message printing.
-	self.FlagSet.SetOutput(voidText)
+	s.FlagSet.SetOutput(voidText)
 	
 	// Harvest error message, conceal flag.Parse() output, then reconstruct error message.
-	stdOut := self.out
-	self.out = voidText
-	err = self.FlagSet.Parse(args)
-	self.out = stdOut
+	stdOut := s.out
+	s.out = voidText
+	err = s.FlagSet.Parse(args)
+	s.out = stdOut
 
 	// Implement new Usage function.
-	self.Usage = func() {
-		if self.Header != "" {
-			fmt.Fprintf(self.out, "%s\n\n", self.Header)
+	s.Usage = func() {
+		if s.Header != "" {
+			fmt.Fprintf(s.out, "%s\n\n", s.Header)
 		} else {
-			if self.name == "" {
-				fmt.Fprintf(self.out, "Available modifiers:\n")
+			if s.name == "" {
+				fmt.Fprintf(s.out, "Available modifiers:\n")
 			} else {
-				if self.name == os.Args[0] {
-					fmt.Fprintf(self.out, "Available %s modifiers:\n", os.Args[0])
+				if s.name == os.Args[0] {
+					fmt.Fprintf(s.out, "Available %s modifiers:\n", os.Args[0])
 				} else {
-					fmt.Fprintf(self.out, "Available '%s %s' modifiers:\n", os.Args[0],self.name)
+					fmt.Fprintf(s.out, "Available '%s %s' modifiers:\n", os.Args[0],s.name)
 				}
 			}
 		}
-		self.PrintDefaults()
-		if self.Footer != "" { fmt.Fprintf(self.out, "%s\n", self.Footer) }
+		s.PrintDefaults()
+		if s.Footer != "" { fmt.Fprintf(s.out, "%s\n", s.Footer) }
 	}
 	
 	// Implement a new error message.	
@@ -197,21 +205,21 @@ func (self *EFlagSet) Parse(args...string) (err error) {
 				for _, arg := range args {
 					if strings.Contains(arg, cmd[1]) {
 						err = fmt.Errorf("%s%s", cmd[0], arg)
-						fmt.Fprintf(self.out, "%s\n\n", err.Error())
+						fmt.Fprintf(s.out, "%s\n\n", err.Error())
 						break
 					}
 				}
 			} else {
-				fmt.Fprintf(self.out, "%s\n\n", errStr)
+				fmt.Fprintf(s.out, "%s\n\n", errStr)
 			}
 		}
 		
 		// Errorflag handling.
-		switch self.errorHandling {
+		switch s.errorHandling {
 			case ContinueOnError:
-				self.Usage()
+				s.Usage()
 			case ExitOnError:
-				self.Usage()
+				s.Usage()
 				os.Exit(2)
 			case PanicOnError:
 				panic(err)
@@ -220,12 +228,12 @@ func (self *EFlagSet) Parse(args...string) (err error) {
 	return
 }
 
-func (self *EFlagSet) String(name string, value string, usage string) *string {
-	self.stringVars[name] = true
-	return self.FlagSet.String(name, value, usage)
+func (s *EFlagSet) String(name string, value string, usage string) *string {
+	s.stringVars[name] = true
+	return s.FlagSet.String(name, value, usage)
 }
 
-func (self *EFlagSet) StringVar(p *string, name string, value string, usage string) {
-	self.stringVars[name] = true
-	self.FlagSet.StringVar(p, name, value, usage)
+func (s *EFlagSet) StringVar(p *string, name string, value string, usage string) {
+	s.stringVars[name] = true
+	s.FlagSet.StringVar(p, name, value, usage)
 }
