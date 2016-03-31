@@ -1,5 +1,19 @@
-// Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
-// Ignores '#' as comment lines, ','s denote multiple values.
+/* Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
+   Ignores '#' as comment lines, ','s denote multiple values.
+
+   # Example config file.
+   [section]
+   key = value
+   key2 = value1, value2
+   key3 = value1,
+          value2,
+          value3
+
+   [section2]
+   key = value1,
+         value2,
+         value3
+*/
 package cfg
 
 import (
@@ -24,54 +38,81 @@ const (
 	cfg_COMMA
 )
 
-type Value struct {
-	num uint
-	val []string
-}
-
-// Output string value.
-func (v *Value) String() string {
-	if len(v.val) == 0 { return "" }
-	return v.val[v.num]
-}
-
-// Go to next value if available.
-func (v *Value) Next() bool {
-	if len(v.val) < int(v.num) + 2 { return false }
-	v.num++
-	return true
-}
-
-// Returns array of all retrieved string values under header with key.
-func (s *Store) Get(header, key string) (*Value, bool) {
+// Returns array of all retrieved string values under section with key.
+func (s *Store) Get(section, key string) ([]string) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	header = strings.ToLower(header)
+	section = strings.ToLower(section)
 	key = strings.ToLower(key)
-	result, found := s.cfgStore[header][key]
-	return &Value {
-		0,
-		result,
-	}, found
+	if result, found := s.cfgStore[section][key]; !found { 
+		return []string{""}
+	} else {
+		if len(result) == 0 { return []string{""} }
+		return result
+	}
 }
 
-// Sets key = values under [header], updates Store and saves to file.
-func (s *Store) Set(header, key string, value...string) (err error) {
+
+// Returns array of all sections in config file.
+func (s *Store) ListSections() (out []string) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for section, _ := range s.cfgStore {
+		out = append(out, section)
+	}
+	return
+}
+
+// Returns keys of section specified.
+func (s *Store) ListKeys(section string) (out []string) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if v, ok := s.cfgStore[section]; !ok { 
+		return nil 
+	} else {
+		for key, _ := range v { 
+			out = append(out, key)
+		}
+	}
+	return
+}
+
+// Returns true if section or section and key exists.
+func (s *Store) Exists(input...string) (found bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	inlen := len(input)
+	if inlen == 0 { return false }
+	if inlen > 0 {
+		if _, found = s.cfgStore[input[0]]; found { return } 
+	}
+	if inlen > 1 {
+		if found == true {
+			_, found = s.cfgStore[input[0]][input[1]]
+			return
+		}
+	}
+	return
+}
+
+// Sets key = values under [section], updates Store and saves to file.
+func (s *Store) Set(section, key string, value...string) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	header = strings.ToLower(header)
+	section = strings.ToLower(section)
 	key = strings.ToLower(key)
 	var newValue []string
 	for _, val := range value { newValue = append(newValue, val) }
 
-	if err := SetFile(s.file, header, key, newValue[0:]...); err != nil { return err }
+	if err := SetFile(s.file, section, key, newValue[0:]...); err != nil { return err }
 
 	// Create new map if one doesn't exist.
-	if _, ok := s.cfgStore[header]; !ok {
-		s.cfgStore[header] = make(map[string][]string)
+	if _, ok := s.cfgStore[section]; !ok {
+		s.cfgStore[section] = make(map[string][]string)
 	}
 
-	s.cfgStore[header][key] = newValue
+	s.cfgStore[section][key] = newValue
 	return
 }
 
@@ -116,7 +157,7 @@ func Load(file string) (out *Store, err error) {
 	var flag, line, last int
 	
 	buf := &bytes.Buffer{}
-	var header, key string
+	var section, key string
 	var val []string
 	out = &Store{
 		file,
@@ -137,10 +178,10 @@ func Load(file string) (out *Store, err error) {
 				if (flag & cfg_KEY != 0) { return out, cfgErr(file, last) }
 				last = line
 				if l > 2 && strings.ContainsAny(txt, "[ & ]") {
-					header = txt[1:l-2]
+					section = txt[1:l-2]
 					flag |= cfg_HEADER
-					header = strings.ToLower(header)
-					out.cfgStore[header] = make(map[string][]string)
+					section = strings.ToLower(section)
+					out.cfgStore[section] = make(map[string][]string)
 					continue scanLoop
 				} else { return out, cfgErr(file, line) }
 			case '#': 
@@ -164,7 +205,7 @@ func Load(file string) (out *Store, err error) {
 				flag &^= cfg_HEADER
 				flag &^= cfg_KEY
 				addVal(buf, &val)
-				out.cfgStore[header][key] = val
+				out.cfgStore[section][key] = val
 				val = nil
 				last = line
 				continue scanLoop
@@ -216,7 +257,7 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 		
 		if (flag & cfg_HEADER == 0) {
 	
-			// Skip to section headers only.
+			// Skip to section sections only.
 			if l > 1 { 
 				if !strings.ContainsAny(txt, "[ & ]") { continue }
 			} else { continue }
@@ -276,8 +317,8 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 	return out, nil
 }
 
-// Writes key = values under [header] to File.
-func SetFile(file, header, key string, value...string) error {
+// Writes key = values under [section] to File.
+func SetFile(file, section, key string, value...string) error {
 	for _, val := range value {
 		for _, ch := range val {
 			switch ch {
@@ -291,7 +332,7 @@ func SetFile(file, header, key string, value...string) error {
 		}
 	}
 	
-	header = strings.ToLower(header)
+	section = strings.ToLower(section)
 	key = strings.ToLower(key)
 	f, err := os.Open(file)
 	if err != nil { return err }
@@ -324,7 +365,7 @@ func SetFile(file, header, key string, value...string) error {
 	}
 	
 	// cfgSeek returns first half and bottom half of file, excluding the key = value.
-	cfgSeek := func(header, key string, f *os.File) (upper int, lower int, flag int) {
+	cfgSeek := func(section, key string, f *os.File) (upper int, lower int, flag int) {
 		f.Seek(0,0)
 		s := bufio.NewScanner(f)
 		
@@ -339,7 +380,7 @@ func SetFile(file, header, key string, value...string) error {
 			if l > 0 && b[0] == '#' || l == 0 { continue }
 		
 			if (flag & cfg_HEADER == 0) {
-				if strings.HasPrefix(b, "[" + header + "]") { 
+				if strings.HasPrefix(b, "[" + section + "]") { 
 					flag |= cfg_HEADER 
 					upper = line
 					continue
@@ -369,7 +410,7 @@ func SetFile(file, header, key string, value...string) error {
 		return line, -1, flag
 	}
 	
-	head, tail, flag := cfgSeek(header, key, f)
+	head, tail, flag := cfgSeek(section, key, f)
 	
 	// Copys line start to line end of src file to dst file.
 	copyFile := func(src, dst *os.File, start, end int) error {
@@ -394,7 +435,7 @@ func SetFile(file, header, key string, value...string) error {
 
 	var txt []string
 	
-	if (flag & cfg_HEADER == 0) { txt = append(txt, "[" + header + "]") }
+	if (flag & cfg_HEADER == 0) { txt = append(txt, "[" + section + "]") }
 	
 	var spacer []byte
 	
@@ -415,7 +456,7 @@ func SetFile(file, header, key string, value...string) error {
 	err = copyFile(f, tmp, 0, head)
 	if err != nil { return err }
 	
-	// Inject new header when needed, and key = values.	
+	// Inject new section when needed, and key = values.	
 	txtL := len(txt) - 1
 	for i, out := range txt {
 		if i == 0 {

@@ -1,96 +1,60 @@
-# cfg
---
-    import "github.com/cmcoffee/go-cfg"
+PACKAGE DOCUMENTATION
 
-Package 'cfg' provides functions for reading and writing configuration files and
-their coresponding string values.
+package cfg
+    import "."
 
-    Ignores '#' as comment lines, ','s denote multiple values.
+    Package 'cfg' provides functions for reading and writing configuration
+    files and their coresponding string values.
 
-    # Example config file.
-    [header]
-    key = value
-    key2 = value1, value2
-    key3 = value1,
-           value2,
-           value3
+	Ignores '#' as comment lines, ','s denote multiple values.
 
-    [header2]
-    key = value1,
-          value2,
-          value3
+	# Example config file.
+	[section]
+	key = value
+	key2 = value1, value2
+	key3 = value1,
+	       value2,
+	       value3
 
-## Usage
+	[section2]
+	key = value1,
+	      value2,
+	      value3
 
-#### func  ReadFile
+FUNCTIONS
 
-```go
 func ReadFile(file, section string) (out map[string][]string, err error)
-```
-Returns map of specific [section] within configuration file.
+    Returns map of specific [section] within configuration file.
 
-#### func  SetFile
+func SetFile(file, section, key string, value ...string) error
+    Writes key = values under [section] to File.
 
-```go
-func SetFile(file, header, key string, value ...string) error
-```
-Writes key = values under [header] to File.
+TYPES
 
-#### type Store
-
-```go
 type Store struct {
+    // contains filtered or unexported fields
 }
-```
 
-
-#### func  Create
-
-```go
 func Create(file string, comment ...string) (out *Store, err error)
-```
-Creates a new empty config file & Store, overwriting an existing file with
-comments if specified.
+    Creates a new empty config file & Store, overwriting an existing file
+    with comments if specified.
 
-#### func  Load
-
-```go
 func Load(file string) (out *Store, err error)
-```
-Reads configuration file and returns Store.
+    Reads configuration file and returns Store.
 
-#### func (*Store) Get
+func (s *Store) Exists(input ...string) (found bool)
+    Returns true if section or section and key exists.
 
-```go
-func (s *Store) Get(header, key string) (*Value, bool)
-```
-Returns array of all retrieved string values under header with key.
+func (s *Store) Get(section, key string) []string
+    Returns array of all retrieved string values under section with key.
 
-#### func (*Store) Set
+func (s *Store) ListKeys(section string) (out []string)
+    Returns keys of section specified.
 
-```go
-func (s *Store) Set(header, key string, value ...string) (err error)
-```
-Sets key = values under [header], updates Store and saves to file.
+func (s *Store) ListSections() (out []string)
+    Returns array of all sections in config file.
 
-#### type Value
-
-```go
-type Value struct {
-}
-```
+func (s *Store) Set(section, key string, value ...string) (err error)
+    Sets key = values under [section], updates Store and saves to file.
 
 
-#### func (*Value) Next
-
-```go
-func (v *Value) Next() bool
-```
-Go to next value if available.
-
-#### func (*Value) String
-
-```go
-func (v *Value) String() string
-```
-Output string value.
