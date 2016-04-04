@@ -71,8 +71,6 @@ func (s *EFlagSet) PrintDefaults() {
 	
 	output := tabwriter.NewWriter(s.out, 34, 8, 1, ' ', 0)
 	
-	fmt.Fprintf(output, "  -h, --help\tPrints usage\n")
-		
 	s.VisitAll(func(flag *flag.Flag) {
 		if flag.Usage == "" { return }
 		var text []string
@@ -105,8 +103,9 @@ func (s *EFlagSet) PrintDefaults() {
 		text = append(text, fmt.Sprintf("\t%s\n", flag.Usage))
 		
 		fmt.Fprintf(output, strings.Join(text[0:], ""))
-		output.Flush()
 	})
+		fmt.Fprintf(output, "  -h, --help\tDisplays usage information.\n")
+		output.Flush()
 }
 
 // Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.
