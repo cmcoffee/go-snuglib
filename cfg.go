@@ -24,6 +24,7 @@ import (
 	"strings"
 	"io/ioutil"
 	"sync"
+	"io"
 )
 
 type Store struct {
@@ -36,6 +37,7 @@ const (
 	cfg_HEADER = 1 << iota
 	cfg_KEY
 	cfg_COMMA
+	cfg_ESCAPE
 )
 
 // Returns array of all retrieved string values under section with key.
@@ -173,6 +175,14 @@ func Load(file string) (out *Store, err error) {
 		if l < 2 { continue }
 		
 		for i, ch := range txt {
+			if (flag & cfg_ESCAPE) > 0 {
+				if i == l - 1 && buf.Len() != 0 {
+					return out, cfgErr(file, line)
+				}
+				buf.WriteRune(ch)
+				flag &^= cfg_ESCAPE
+				continue
+			}
 			switch ch {
 			case '[':
 				if (flag & cfg_KEY != 0) { return out, cfgErr(file, last) }
@@ -209,6 +219,9 @@ func Load(file string) (out *Store, err error) {
 				val = nil
 				last = line
 				continue scanLoop
+			case '\\':
+				flag |= cfg_ESCAPE
+				continue
 			default:
 				if buf.Len() == 0 {
 					switch ch {
@@ -270,6 +283,14 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 			
 		} else {
 			for i, ch := range txt {
+				if (flag & cfg_ESCAPE) > 0 {
+					if i == l - 1 && buf.Len() != 0 {
+						return out, cfgErr(file, line)
+					}	
+					buf.WriteRune(ch)
+					flag &^= cfg_ESCAPE
+					continue
+				}
 				switch ch {
 				case '=':
 					if (flag & cfg_KEY != 0) { return out, cfgErr(file, line) }
@@ -295,6 +316,9 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 				case '[':
 					if (flag & cfg_KEY != 0) { return out, cfgErr(file, last) }
 					return
+				case '\\':
+					flag |= cfg_ESCAPE
+					continue
 				default:
 					if buf.Len() == 0 {
 						switch ch {
@@ -339,13 +363,9 @@ func SetFile(file, section, key string, value...string) error {
 	defer f.Close()
 	
 	// Generate temp file, then close it, reopen it with append.
-	tmp, err := ioutil.TempFile(os.TempDir(), "snugconf.tmp")
+	tmp, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("%s.temp_conf.", os.Args[0]))
 	if err != nil { return err }
 	tmpfname := tmp.Name()
-	tmp.Close()
-	tmp, err = os.OpenFile(tmpfname, os.O_RDWR|os.O_APPEND, 0600)
-	if err != nil { return err }
-	defer tmp.Close()
 	
 	no_end_comma := func(input string) (no_comma bool) {
 		no_comma = true
@@ -484,16 +504,32 @@ func SetFile(file, section, key string, value...string) error {
 	// Sync and close everything.
 	err = tmp.Sync()
 	if err != nil { return err }
+
 	err = tmp.Close()
 	if err != nil { return err }
+
+	tmp, err = os.Open(tmpfname)
+	if err != nil { return err }
+
 	err = f.Close()
 	if err != nil { return err }
-	err = os.Remove(file)
-	if err != nil { return err }
 	
-	// Move temp file to config file.
-	err = os.Rename(tmpfname, file)
+	destfile, err := os.OpenFile(file, os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil { return err }
+	defer destfile.Close()
+
+	_, err = io.Copy(destfile, tmp)
+	if err != nil { return err }
+
+	err = destfile.Sync()
+	if err != nil {return err }
+
+	err = tmp.Close()
+	if err != nil { return err }
+
+	err = os.Remove(tmpfname)
+	if err != nil { return err }
+
 
 	return nil
 }
