@@ -50,6 +50,12 @@ func (s *Store) Get(section, key string) ([]string) {
 		return []string{""}
 	} else {
 		if len(result) == 0 { return []string{""} }
+
+		// Remove escape characters.
+		for i, val := range result {
+			result[i] = strings.Replace(val, "\\", "", -1)
+			fmt.Println(result[i])
+		}
 		return result
 	}
 }
@@ -221,7 +227,7 @@ func Load(file string) (out *Store, err error) {
 				continue scanLoop
 			case '\\':
 				flag |= cfg_ESCAPE
-				continue
+				fallthrough
 			default:
 				if buf.Len() == 0 {
 					switch ch {
@@ -318,7 +324,7 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 					return
 				case '\\':
 					flag |= cfg_ESCAPE
-					continue
+					fallthrough
 				default:
 					if buf.Len() == 0 {
 						switch ch {
