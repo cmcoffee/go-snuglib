@@ -52,10 +52,7 @@ func (s *Store) Get(section, key string) ([]string) {
 		if len(result) == 0 { return []string{""} }
 
 		// Remove escape characters.
-		for i, val := range result {
-			result[i] = strings.Replace(val, "\\", "", -1)
-			fmt.Println(result[i])
-		}
+		for i, val := range result { result[i] = strings.Replace(val, "\\", "", -1) }
 		return result
 	}
 }
