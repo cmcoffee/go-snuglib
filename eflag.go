@@ -104,7 +104,7 @@ func (s *EFlagSet) PrintDefaults() {
 		
 		fmt.Fprintf(output, strings.Join(text[0:], ""))
 	})
-		fmt.Fprintf(output, "  -h, --help\tDisplays usage information.\n")
+		fmt.Fprintf(output, "  --help\tDisplays usage information.\n")
 		output.Flush()
 }
 
@@ -137,11 +137,7 @@ func (s *EFlagSet) Alias(val interface{}, name string, alias string) {
 }
 
 // Wraps around the standard flag Parse, adds header and footer.
-func (s *EFlagSet) Parse(args...string) (err error) {
-	if len(args) == 0 {
-		args = os.Args[1:]
-	}
-	
+func (s *EFlagSet) Parse(args []string) (err error) {
 	// set usage to empty to prevent unessisary work as we dump the output of flag.
 	s.Usage = func() {}
 
@@ -187,7 +183,7 @@ func (s *EFlagSet) Parse(args...string) (err error) {
 				if s.name == os.Args[0] {
 					fmt.Fprintf(s.out, "Available %s modifiers:\n", os.Args[0])
 				} else {
-					fmt.Fprintf(s.out, "Available '%s %s' modifiers:\n", os.Args[0],s.name)
+					fmt.Fprintf(s.out, "Available %s modifiers:\n", s.name)
 				}
 			}
 		}
