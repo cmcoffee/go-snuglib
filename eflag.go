@@ -141,26 +141,18 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	// set usage to empty to prevent unessisary work as we dump the output of flag.
 	s.Usage = func() {}
 
-	// Allows for multiple switches when single '-' is used.
-	for n, arg := range args {
-		if !strings.HasPrefix(arg, "-") { break } // Is not a modifier, but a command.
-		if strings.HasPrefix(arg, "--") { continue }
-		if s.Lookup(arg) != nil { continue } 
-		if _, ok := s.alias[arg]; ok { continue }
-		arg = strings.TrimLeft(arg, "-")
-		var newArgs []string
-		
-		// Break multiple flags into individual flags.
-		for _, ch := range arg {
-			if ch == '=' {
-				newArgs[len(newArgs)-1] = fmt.Sprintf("%s=%s", newArgs[len(newArgs) - 1], strings.Split(arg, "=")[1])
-				break
-			}
-			newArgs = append(newArgs, fmt.Sprintf("-%c", ch))
+	// Split bool flags so that '-abc' becomes '-a -b -c' before being parsed.
+	for i, a := range args {
+		if !strings.Contains(a, "-") { continue }
+		if strings.Contains(a, "=") { continue }
+		if strings.Contains(a, "--") { continue }
+		a = strings.TrimPrefix(a, "-")
+		args[i] = fmt.Sprintf("-%c", a[0])
+		for _, ch := range a[1:] {
+			args = append(args[0:], "")
+			copy(args[1:], args[0:])
+			args[0] = fmt.Sprintf("-%c", ch)
 		}
-		copy(args[n:], args[n+1:])
-		args = args[:len(args)-1]
-		args = append(newArgs, args[0:]...)   
 	}
 	
 	// Remove normal error message printing.
@@ -169,6 +161,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	// Harvest error message, conceal flag.Parse() output, then reconstruct error message.
 	stdOut := s.out
 	s.out = voidText
+
 	err = s.FlagSet.Parse(args)
 	s.out = stdOut
 
