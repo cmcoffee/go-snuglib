@@ -147,6 +147,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 		if strings.Contains(a, "=") { continue }
 		if strings.Contains(a, "--") { continue }
 		a = strings.TrimPrefix(a, "-")
+		if len(a) == 0 { continue }
 		args[i] = fmt.Sprintf("-%c", a[0])
 		for _, ch := range a[1:] {
 			args = append(args[0:], "")
