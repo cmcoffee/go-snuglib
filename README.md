@@ -25,6 +25,13 @@ Package 'cfg' provides functions for reading and writing configuration files and
 
 
 
+## func ListSections
+``` go
+func ListSections(file string) (out []string, err error)
+```
+Lists all Sections in config file.
+
+
 ## func ReadFile
 ``` go
 func ReadFile(file, section string) (out map[string][]string, err error)

@@ -249,6 +249,25 @@ func Load(file string) (out *Store, err error) {
 	return out, nil	
 }
 
+//Lists all Sections in config file.
+func ListSections(file string) (out []string, err error) {
+	f, err := os.Open(file)
+	if err != nil { return nil, err }
+	defer f.Close()
+	s := bufio.NewScanner(f)
+		
+	for s.Scan() {
+		txt := s.Text()
+		l := len(txt)
+		
+		if l > 1 && txt[0] == '#' || l == 1 { continue }
+		if l > 2 && txt[0] == '[' && txt[l-1] == ']' {
+			out = append(out[0:], txt[1:l-1])
+		}
+	}
+	return out, err
+}
+
 // Returns map of specific [section] within configuration file.
 func ReadFile(file, section string) (out map[string][]string, err error) {
 	section = strings.ToLower(section)
