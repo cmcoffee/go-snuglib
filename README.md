@@ -75,16 +75,6 @@ func Load(file string) (out *Store, err error)
 Reads configuration file and returns Store.
 
 
-<<<<<<< HEAD
-### func ReadOnly
-``` go
-func ReadOnly(file string) (out *Store, err error)
-```
-Reads configuration file and returns Store, changes are not saved to disk.
-
-
-=======
->>>>>>> eb4e0ca105f39f9d6110b121ff1cfe5079ab6600
 
 
 ### func (\*Store) Exists
