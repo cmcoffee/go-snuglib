@@ -1,5 +1,5 @@
 /* Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
-   Ignores '#' as comment lines, ','s denote multiple values.
+   Ignores '#', ';' as comment lines, ','s denote multiple values.
 
    # Example config file.
    [section]
@@ -151,27 +151,25 @@ func cfgErr(file string, line int) error {
 	return fmt.Errorf("Syntax error found in %s on line %d.", file, line)
 }
 
-// Creates a new empty config file & Store, overwriting an existing file with comments if specified.
-func Create(file string, comment ...string) (out *Store, err error) {
-	f, err := os.Create(file)
-	if err != nil {
-		return nil, err
-	}
-
-	defer f.Close()
-
-	out = &Store{
-		file,
+func NewStore() (out *Store) {
+	return &Store{
+		EMPTY,
 		new(sync.RWMutex),
 		make(map[string]map[string][]string),
-		false,
+		true,
 	}
-	if len(comment) > 0 {
-		for _, c := range comment {
-			f.WriteString("# " + c + "\n")
+}
+
+// Sets default settings for configuration store, ignores if already set.
+func (s *Store) SetDefaults(section string, input map[string][]string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for key, val := range input {
+		if _, found := s.cfgStore[section][key]; !found {
+			s.cfgStore[section][key] = val
 		}
 	}
-	return
 }
 
 // Reads configuration file and returns Store, changes are not saved to disk.
@@ -278,6 +276,8 @@ scanLoop:
 					skip = true
 				}
 				fallthrough
+			case ';':
+				fallthrough
 			case '#':
 				if flag&cfg_KEY == 0 && !skip {
 					continue scanLoop
@@ -337,7 +337,7 @@ func ListSections(file string) (out []string, err error) {
 		txt := s.Text()
 		l := len(txt)
 
-		if l > 1 && txt[0] == '#' || l == 1 {
+		if l > 1 && (txt[0] == '#' || txt[0] == ';') || l == 1 {
 			continue
 		}
 
@@ -372,7 +372,7 @@ func ReadFile(file, section string) (out map[string][]string, err error) {
 		txt := s.Text() + "\n"
 		l := len(txt)
 
-		if l > 1 && txt[0] == '#' || l == 1 {
+		if l > 1 && (txt[0] == '#' || txt[0] == ';') || l == 1 {
 			continue
 		}
 
@@ -536,7 +536,7 @@ func SetFile(file, section, key string, value ...string) error {
 			b = strings.ToLower(b)
 			l := len(b)
 
-			if l > 0 && b[0] == '#' || l == 0 {
+			if l > 0 && (b[0] == '#' || b[0] == ';') || l == 0 {
 				continue
 			}
 

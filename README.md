@@ -5,7 +5,7 @@
 Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
 
 
-	Ignores '#' as comment lines, ','s denote multiple values.
+	Ignores '#', ';' as comment lines, ','s denote multiple values.
 	
 	# Example config file.
 	[section]
@@ -23,6 +23,10 @@ Package 'cfg' provides functions for reading and writing configuration files and
 
 
 
+## Constants
+``` go
+const EMPTY = ""
+```
 
 
 ## func ListSections
@@ -61,19 +65,17 @@ type Store struct {
 
 
 
-### func Create
-``` go
-func Create(file string, comment ...string) (out *Store, err error)
-```
-Creates a new empty config file & Store, overwriting an existing file with comments if specified.
-
-
 ### func Load
 ``` go
 func Load(file string) (out *Store, err error)
 ```
 Reads configuration file and returns Store.
 
+
+### func NewStore
+``` go
+func NewStore() (out *Store)
+```
 
 ### func ReadOnly
 ``` go
@@ -121,6 +123,14 @@ Returns array of all sections in config file.
 func (s *Store) Set(section, key string, value ...string) (err error)
 ```
 Sets key = values under [section], updates Store and saves to file.
+
+
+
+### func (\*Store) SetDefaults
+``` go
+func (s *Store) SetDefaults(section string, input map[string][]string)
+```
+Sets default settings for configuration store, ignores if already set.
 
 
 
