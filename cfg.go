@@ -228,12 +228,7 @@ scanLoop:
 				}
 				flag &^= cfg_HEADER | cfg_KEY | cfg_ESCAPE
 				addVal(buf, &val)
-				for i, v := range val {
-					unq, err := strconv.Unquote(fmt.Sprintf("\"%s\"", v))
-					if err == nil {
-						val[i] = unq
-					}
-				}
+				for i, v := range val { val[i] = v }
 				out.cfgStore[section][key] = val
 				val = nil
 				last = line
