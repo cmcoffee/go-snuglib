@@ -65,7 +65,7 @@ func (s *Store) SGet(section, key string) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	section = strings.ToLower(section)
-	key = strings.ToLower(section)
+	key = strings.ToLower(key)
 	var (
 		result []string
 		found  bool
