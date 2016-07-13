@@ -60,6 +60,35 @@ func (s *Store) Get(section, key string) []string {
 	}
 }
 
+// Return a single string entry of values under section with key.
+func (s *Store) SGet(section, key string) string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(section)
+	var (
+		result []string
+		found  bool
+	)
+
+	if result, found = s.cfgStore[section][key]; !found {
+		return EMPTY
+	}
+
+	res_len := len(result)
+
+	if res_len == 0 {
+		return EMPTY
+	}
+
+	if res_len == 1 {
+		return s.cfgStore[section][key][0]
+	} else {
+		joined := strings.Join(result, ",")
+		return joined
+	}
+}
+
 // Returns array of all sections in config file.
 func (s *Store) ListSections() (out []string) {
 	s.mutex.RLock()
@@ -228,7 +257,9 @@ scanLoop:
 				}
 				flag &^= cfg_HEADER | cfg_KEY | cfg_ESCAPE
 				addVal(buf, &val)
-				for i, v := range val { val[i] = v }
+				for i, v := range val {
+					val[i] = v
+				}
 				out.cfgStore[section][key] = val
 				val = nil
 				last = line

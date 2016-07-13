@@ -118,6 +118,14 @@ Returns array of all sections in config file.
 
 
 
+### func (\*Store) SGet
+``` go
+func (s *Store) SGet(section, key string) string
+```
+Return a single string entry of values under section with key.
+
+
+
 ### func (\*Store) Set
 ``` go
 func (s *Store) Set(section, key string, value ...string) (err error)
