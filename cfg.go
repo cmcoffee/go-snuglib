@@ -21,18 +21,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 )
 
 type Store struct {
 	file     string
-	mutex    *sync.RWMutex
+	mutex    sync.RWMutex
 	cfgStore map[string]map[string][]string
-	readOnly bool
 }
 
 const (
@@ -42,57 +39,61 @@ const (
 	cfg_ESCAPE
 )
 
-const EMPTY = ""
+const empty = ""
 
 // Returns array of all retrieved string values under section with key.
-func (s *Store) Get(section, key string) []string {
+func (s *Store) MGet(section, key string) []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	section = strings.ToLower(section)
 	key = strings.ToLower(key)
+
+	if s.cfgStore == nil { return []string{empty} }
+
 	if result, found := s.cfgStore[section][key]; !found {
-		return []string{EMPTY}
+		return []string{empty}
 	} else {
 		if len(result) == 0 {
-			return []string{EMPTY}
+			return []string{empty}
 		}
 		return result
 	}
 }
 
-// Return a single string entry of values under section with key.
-func (s *Store) SGet(section, key string) string {
+// Return only the first entry, if there are multiple entries the rest are skipped.
+func (s *Store) Get(section, key string) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	section = strings.ToLower(section)
 	key = strings.ToLower(key)
+
+	if s.cfgStore == nil { return empty }
+
 	var (
 		result []string
 		found  bool
 	)
 
 	if result, found = s.cfgStore[section][key]; !found {
-		return EMPTY
+		return empty
 	}
 
 	res_len := len(result)
 
 	if res_len == 0 {
-		return EMPTY
+		return empty
 	}
 
-	if res_len == 1 {
-		return s.cfgStore[section][key][0]
-	} else {
-		joined := strings.Join(result, ",")
-		return joined
-	}
+	return result[0]
 }
 
 // Returns array of all sections in config file.
-func (s *Store) ListSections() (out []string) {
+func (s *Store) Sections() (out []string) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
+	if s.cfgStore == nil { return []string{empty} }
+
 	for section, _ := range s.cfgStore {
 		out = append(out, section)
 	}
@@ -100,11 +101,12 @@ func (s *Store) ListSections() (out []string) {
 }
 
 // Returns keys of section specified.
-func (s *Store) ListKeys(section string) (out []string) {
+func (s *Store) Keys(section string) (out []string) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
 	if v, ok := s.cfgStore[section]; !ok {
-		return nil
+		return []string{empty}
 	} else {
 		for key, _ := range v {
 			out = append(out, key)
@@ -118,13 +120,15 @@ func (s *Store) Exists(input ...string) (found bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	if s.cfgStore == nil { return false }
+
 	inlen := len(input)
 	if inlen == 0 {
 		return false
 	}
 
 	if inlen > 0 {
-		if _, found = s.cfgStore[input[0]]; found {
+		if _, found = s.cfgStore[input[0]]; !found {
 			return
 		}
 	}
@@ -137,6 +141,36 @@ func (s *Store) Exists(input ...string) (found bool) {
 	return
 }
 
+// Unsets a specified key, or specified section.
+// If section is empty, section is removed.
+func (s *Store) Unset(input ... string) {
+
+	for i, val := range input {
+		input[i] = strings.ToLower(val)
+	}
+
+	if s.cfgStore == nil { return }
+
+	switch len(input) {
+		case 0:
+			return
+		case 1:
+			keys := s.Keys(input[0])
+			s.mutex.Lock()
+			for _, key := range keys {
+				delete(s.cfgStore[input[0]], key)
+			}
+			delete(s.cfgStore, input[0])
+		default:
+			s.mutex.Lock()
+			delete(s.cfgStore[input[0]], input[1])
+			if len(s.cfgStore[input[0]]) == 0 {
+				delete(s.cfgStore, input[0])
+			}
+	}
+	s.mutex.Unlock()
+}
+
 // Sets key = values under [section], updates Store and saves to file.
 func (s *Store) Set(section, key string, value ...string) (err error) {
 	s.mutex.Lock()
@@ -145,15 +179,10 @@ func (s *Store) Set(section, key string, value ...string) (err error) {
 	key = strings.ToLower(key)
 	var newValue []string
 
+	if s.cfgStore == nil { s.cfgStore = make(map[string]map[string][]string) }
+
 	for _, val := range value {
 		newValue = append(newValue, val)
-	}
-
-	// If read-only, do not write to file.
-	if !s.readOnly {
-		if err := SetFile(s.file, section, key, newValue[0:]...); err != nil {
-			return err
-		}
 	}
 
 	// Create new map if one doesn't exist.
@@ -161,7 +190,11 @@ func (s *Store) Set(section, key string, value ...string) (err error) {
 		s.cfgStore[section] = make(map[string][]string)
 	}
 
-	s.cfgStore[section][key] = newValue
+	if len(value[0]) == 0 {
+		delete(s.cfgStore[section], key)
+	} else {
+		s.cfgStore[section][key] = newValue
+	}
 	return
 }
 
@@ -176,66 +209,33 @@ func addVal(buf *bytes.Buffer, val *[]string) {
 	buf.Reset()
 }
 
-func cfgErr(file string, line int) error {
-	return fmt.Errorf("Syntax error found in %s on line %d.", file, line)
+// Creates error output when config file has error.
+func cfgErr(line int) error {
+	return fmt.Errorf("Syntax error found on line %d.", line)
 }
 
-func NewStore() (out *Store) {
-	return &Store{
-		EMPTY,
-		new(sync.RWMutex),
-		make(map[string]map[string][]string),
-		true,
-	}
-}
-
-// Sets default settings for configuration store, ignores if already set.
-func (s *Store) SetDefaults(section string, input map[string][]string) {
+// Parses the configuration data.
+func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	for key, val := range input {
-		if _, found := s.cfgStore[section][key]; !found {
-			s.cfgStore[section][key] = val
-		}
-	}
-}
-
-// Reads configuration file and returns Store, changes are not saved to disk.
-func ReadOnly(file string) (out *Store, err error) {
-	out, err = Load(file)
-	if out != nil {
-		out.readOnly = true
-	}
-	return
-}
-
-// Reads configuration file and returns Store.
-func Load(file string) (out *Store, err error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
+	sc := bufio.NewScanner(input)
 
 	var flag, line, last int
 
 	buf := &bytes.Buffer{}
 	var section, key string
 	var val []string
-	out = &Store{
-		file,
-		new(sync.RWMutex),
-		make(map[string]map[string][]string),
-		false,
-	}
 	var skip bool
 
+	if s.cfgStore == nil { 
+		s.cfgStore = make(map[string]map[string][]string) 
+	}
+
 scanLoop:
-	for s.Scan() {
+	for sc.Scan() {
 		line++
-		txt := s.Text() + "\n"
+		txt := sc.Text() + "\n"
 		l := len(txt)
 		if l < 2 {
 			continue
@@ -246,13 +246,13 @@ scanLoop:
 			switch ch {
 			case '\n':
 				if flag&cfg_KEY == 0 {
-					return out, cfgErr(file, line)
+					return cfgErr(line)
 				}
-				if flag&cfg_COMMA != 0 {
+				if flag&cfg_COMMA == cfg_COMMA {
 					flag &^= cfg_COMMA
 					continue
 				}
-				if flag&cfg_ESCAPE > 0 {
+				if flag&cfg_ESCAPE == cfg_ESCAPE {
 					buf.WriteRune('\\')
 				}
 				flag &^= cfg_HEADER | cfg_KEY | cfg_ESCAPE
@@ -260,7 +260,9 @@ scanLoop:
 				for i, v := range val {
 					val[i] = v
 				}
-				out.cfgStore[section][key] = val
+				if _, ok := s.cfgStore[section][key]; !ok || overwrite {
+					s.cfgStore[section][key] = val
+				}
 				val = nil
 				last = line
 				continue scanLoop
@@ -274,7 +276,7 @@ scanLoop:
 				}
 				fallthrough
 			case ',':
-				if flag&cfg_KEY > 0 && flag&cfg_ESCAPE == 0 {
+				if flag&cfg_KEY == cfg_KEY && flag&cfg_ESCAPE == 0 {
 					addVal(buf, &val)
 					last = line
 					flag |= cfg_COMMA
@@ -288,14 +290,27 @@ scanLoop:
 			case '[':
 				if flag&cfg_KEY == 0 && !skip {
 					last = line
-					if l > 2 && strings.ContainsAny(txt, "[ & ]") {
-						section = txt[1 : l-2]
+					if l > 2 && strings.ContainsRune(txt, ']') {
+						var s_start, s_end int
+						for n, c := range txt {
+							if c == '[' {
+								s_start = n + 1
+								for i := l - 1; i > n; i-- {
+									if txt[i] == ']' {
+										s_end = i
+									}
+								}
+							}
+						}
+						section = txt[s_start:s_end]
 						flag |= cfg_HEADER
 						section = strings.ToLower(section)
-						out.cfgStore[section] = make(map[string][]string)
+						if s.cfgStore[section] == nil {
+							s.cfgStore[section] = make(map[string][]string)
+						}
 						continue scanLoop
 					} else {
-						return out, cfgErr(file, line)
+						return cfgErr(line)
 					}
 				}
 				if !skip {
@@ -334,9 +349,9 @@ scanLoop:
 				}
 				flag &^= cfg_COMMA
 				if i == l-1 && buf.Len() != 0 {
-					return out, cfgErr(file, line)
+					return cfgErr(line)
 				}
-				if flag&cfg_ESCAPE > 0 {
+				if flag&cfg_ESCAPE == cfg_ESCAPE {
 					buf.WriteRune('\\')
 					flag &^= cfg_ESCAPE
 				}
@@ -345,262 +360,63 @@ scanLoop:
 		}
 	}
 	if flag&cfg_KEY != 0 {
-		return out, cfgErr(file, last)
+		return cfgErr(last)
 	}
-	return out, nil
+	return nil
 }
 
-//Lists all Sections in config file.
-func ListSections(file string) (out []string, err error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-
-	for s.Scan() {
-		txt := s.Text()
-		l := len(txt)
-
-		if l > 1 && (txt[0] == '#' || txt[0] == ';') || l == 1 {
-			continue
-		}
-
-		if l > 2 && txt[0] == '[' && txt[l-1] == ']' {
-			out = append(out[0:], txt[1:l-1])
-		}
-	}
-	return out, err
+// Sets default settings for configuration store, ignores if already set.
+func (s *Store) Defaults(input string) (err error) {
+	return s.config_parser(strings.NewReader(input), false)
 }
 
-// Returns map of specific [section] within configuration file.
-func ReadFile(file, section string) (out map[string][]string, err error) {
-	section = strings.ToLower(section)
+// Reads configuration file and returns Store, file must exist even if empty.
+func (s *Store) File(file string) (err error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer f.Close()
+	err = s.config_parser(f, true)
+	if err != nil {
+		return fmt.Errorf("%s: %s", file, err)
+	}
+	s.file = file
+	return 
+}
+
+// Saves [section](s) to file, recording all key = value pairs, if empty, save all sections.
+func (s *Store) Save(sections...string) error {
+
+	if s.file == empty { return fmt.Errorf("No file specified for write operation.")}
+
+	if len(sections) == 0 {
+		sections = s.Sections()
 	}
 
-	defer f.Close()
-	s := bufio.NewScanner(f)
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	var flag, line, last int
-
-	buf := &bytes.Buffer{}
-	var key string
-	var val []string
-	out = make(map[string][]string)
-	var skip bool
-
-	for s.Scan() {
-		line++
-		txt := s.Text() + "\n"
-		l := len(txt)
-
-		if l > 1 && (txt[0] == '#' || txt[0] == ';') || l == 1 {
-			continue
-		}
-
-		if flag&cfg_HEADER == 0 {
-
-			// Skip to section sections only.
-			if l > 1 {
-				if !strings.ContainsAny(txt, "[ & ]") {
-					continue
-				}
-			} else {
-				continue
+	f, err := os.Open(s.file)
+	if err != nil {
+		if os.IsNotExist(err) {
+			f, err = os.Create(s.file)
+			if err != nil {
+				return err 
 			}
-
-			txt = strings.ToLower(txt)
-
-			if strings.HasPrefix(txt, "["+section+"]") {
-				flag |= cfg_HEADER
-			}
-
 		} else {
-			for i, ch := range txt {
-				skip = false
-				switch ch {
-				case '\n':
-					if flag&cfg_KEY > 0 {
-						if flag&cfg_COMMA > 0 {
-							flag &^= cfg_COMMA
-							continue
-						}
-						if flag&cfg_ESCAPE > 0 {
-							buf.WriteRune('\\')
-						}
-						flag &^= cfg_KEY | cfg_ESCAPE
-						addVal(buf, &val)
-						for i, v := range val {
-							unq, err := strconv.Unquote(fmt.Sprintf("\"%s\"", v))
-							if err == nil {
-								val[i] = unq
-							}
-						}
-						out[key] = val
-						val = nil
-						last = line
-					}
-				case '\\':
-					if flag&cfg_ESCAPE == 0 {
-						flag |= cfg_ESCAPE
-						continue
-					}
-					if !skip {
-						skip = true
-					}
-					fallthrough
-				case '=':
-					if flag&cfg_KEY == 0 && !skip {
-						flag |= cfg_KEY
-						key = setKey(buf)
-						last = line
-						continue
-					}
-					if !skip {
-						skip = true
-					}
-					fallthrough
-				case ',':
-					if flag&cfg_KEY > 0 && !skip && flag&cfg_ESCAPE == 0 {
-						addVal(buf, &val)
-						last = line
-						flag |= cfg_COMMA
-						continue
-					}
-					if flag&cfg_ESCAPE > 0 {
-						flag &^= cfg_ESCAPE
-					}
-					if !skip {
-						skip = true
-					}
-					fallthrough
-				case '[':
-					if flag&cfg_KEY == 0 && !skip {
-						return
-					}
-					if !skip {
-						skip = true
-					}
-					fallthrough
-				default:
-					if buf.Len() == 0 {
-						switch ch {
-						case ' ':
-							fallthrough
-						case '\t':
-							continue
-						}
-					}
-					flag &^= cfg_COMMA
-					if i == l-1 && buf.Len() != 0 {
-						return out, cfgErr(file, line)
-					}
-					if flag&cfg_ESCAPE > 0 {
-						buf.WriteRune('\\')
-						flag &^= cfg_ESCAPE
-					}
-					buf.WriteRune(ch)
-				}
-
-			}
+			return err
 		}
 	}
-	if flag&cfg_KEY != 0 {
-		return out, cfgErr(file, last)
+
+	// interface for copying file content to ram and back to disk.
+	type source interface {
+		Seek(offset int64, whence int) (int64, error)
+		Read(p []byte) (n int, err error)
 	}
-	return out, nil
-}
-
-// Writes key = values under [section] to File.
-func SetFile(file, section, key string, value ...string) error {
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
-	f, err := os.Open(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Generate temp file, then close it, reopen it with append.
-	tmp, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("%s.temp_conf.", os.Args[0]))
-	if err != nil {
-		return err
-	}
-	tmpfname := tmp.Name()
-
-	no_end_comma := func(input string) (no_comma bool) {
-		no_comma = true
-		for _, ch := range input {
-			switch ch {
-			case ',':
-				no_comma = false
-			case '\t':
-				fallthrough
-			case ' ':
-				fallthrough
-			default:
-				no_comma = true
-			}
-		}
-		return
-	}
-
-	// cfgSeek returns first half and bottom half of file, excluding the key = value.
-	cfgSeek := func(section, key string, f *os.File) (upper int, lower int, flag int) {
-		f.Seek(0, 0)
-		s := bufio.NewScanner(f)
-
-		var line int
-
-		for s.Scan() {
-			line++
-			b := s.Text()
-			b = strings.ToLower(b)
-			l := len(b)
-
-			if l > 0 && (b[0] == '#' || b[0] == ';') || l == 0 {
-				continue
-			}
-
-			if flag&cfg_HEADER == 0 {
-				if strings.HasPrefix(b, "["+section+"]") {
-					flag |= cfg_HEADER
-					upper = line
-					continue
-				}
-			} else {
-				// if we hit the next [section], we didn't find the key to replace, which means its new.
-				if b[0] == '[' {
-					lower = upper + 1
-					return
-				}
-			}
-
-			if flag&cfg_HEADER > 0 {
-				if (flag&cfg_KEY == 0) && strings.HasPrefix(b, key) {
-					pfx := strings.Split(b, "=")
-					if strings.TrimSpace(pfx[0]) == key {
-						upper = line - 1
-						flag |= cfg_KEY
-					}
-				}
-				if (flag&cfg_KEY > 0) && no_end_comma(b) {
-					lower = line + 1
-					return
-				}
-			}
-		}
-		return line, -1, flag
-	}
-
-	head, tail, flag := cfgSeek(section, key, f)
 
 	// Copys line start to line end of src file to dst file.
-	copyFile := func(src, dst *os.File, start, end int) error {
+	copyFile := func(src source, dst io.Writer, start, end int) error {
 		_, err := src.Seek(0, 0)
 		if err != nil {
 			return err
@@ -616,7 +432,7 @@ func SetFile(file, section, key string, value ...string) error {
 
 		for (line < end || end == -1) && s.Scan() {
 			line++
-			_, err := dst.WriteString(s.Text() + "\n")
+			_, err := io.WriteString(dst, s.Text() + "\n")
 			if err != nil {
 				return err
 			}
@@ -624,114 +440,135 @@ func SetFile(file, section, key string, value ...string) error {
 		return nil
 	}
 
-	var txt []string
+	// cfgSeek returns first half and bottom half of file, excluding the key = value.
+	cfgSeek := func(section string, f source) (upper int, lower int) {
+		f.Seek(0, 0)
+		s := bufio.NewScanner(f)
 
-	if flag&cfg_HEADER == 0 {
-		txt = append(txt, "["+section+"]")
-	}
+		var line int
 
-	var spacer []byte
+		upper = -1
 
-	for i, str := range value {
-		if str == EMPTY {
-			break
-		}
+		for s.Scan() {
+			line++
+			b := strings.ToLower(strings.TrimSpace(s.Text()))
+			l := len(b)
 
-		if i == 0 {
-			str = strings.Replace(strconv.Quote(str), ",", "\\,", -1)
-			txt = append(txt, key+" = "+str[1:len(str)-1])
-			spacer = make([]byte, len(key+" = "))
-			for ch := range spacer {
-				spacer[ch] = ' '
+			if l > 0 && (b[0] == '#' || b[0] == ';') || l == 0 {
+				continue
 			}
-			continue
-		}
-		txt = append(txt, string(spacer)+str)
+
+			// Record the begining of the next section
+			if strings.HasPrefix(b, "[") {
+				if strings.HasPrefix(b, "["+section+"]") {
+					upper = line - 1
+					continue
+				} else if upper > -1 {
+					lower = line - 1
+					return
+				} 
+			}
+		} 
+		if upper == -1 { upper = line }
+		return upper, line
 	}
 
-	// Appends first half of the file.
-	err = copyFile(f, tmp, 0, head)
+	tmp_dst := new(bytes.Buffer)
+
+	// Copy entire config into memory.
+	err = copyFile(f, tmp_dst, 0, -1)
 	if err != nil {
 		return err
 	}
+	f.Close()
 
-	// Inject new section when needed, and key = values.
-	txtL := len(txt) - 1
-	for i, out := range txt {
-		if i == 0 {
-			if flag&cfg_HEADER == 0 {
-				_, err = tmp.WriteString("\n" + out + "\n")
+	var src_buf []byte
+
+	for _, section := range sections {
+		section = strings.ToLower(section)
+		wb_sz := tmp_dst.Len()
+		rd_sz := cap(src_buf)
+
+		if rd_sz < wb_sz {
+			src_buf = append(src_buf[:rd_sz], make([]byte, wb_sz - rd_sz)[0:]...)
+		}
+
+		src_buf = src_buf[0:wb_sz]
+
+		copy(src_buf, tmp_dst.Bytes())
+		tmp_src := bytes.NewReader(src_buf)
+
+		tmp_dst.Reset()
+		
+		head, tail := cfgSeek(section, tmp_src)
+
+		err = copyFile(tmp_src, tmp_dst, 0, head)
+		if err != nil {
+			return err 
+		}
+
+		if _, ok := s.cfgStore[section]; ok {
+			// Inject new section when needed, and key = values.
+			_, err = tmp_dst.WriteString("[" + section + "]\n")
+			if err != nil {
+				return err
+			}
+
+			for k, v := range s.cfgStore[section] {
+				_, err = tmp_dst.WriteString(k + " = ")
 				if err != nil {
 					return err
 				}
-				continue
+				spacer := make([]byte, len(k + " = "))
+				for n, _ := range spacer {
+					spacer[n] = ' '
+				}
+				vlen := len(v)
+				var str string
+				for n, txt := range v {
+					if n > 0 {
+						str = fmt.Sprintf("%s%s", spacer, txt)
+					} else {
+						str = txt
+					}
+					if n == vlen - 1 {
+						_, err = tmp_dst.WriteString(str + "\n")
+					} else {
+						_, err = tmp_dst.WriteString(str + ",\n")
+					}
+					if err != nil {
+						return err
+					}
+				}
 			}
-		}
-		if i < txtL {
-			_, err = tmp.WriteString(out + ",\n")
+			_, err = tmp_dst.WriteString("\n")
 			if err != nil {
 				return err
 			}
-		} else {
-			_, err = tmp.WriteString(out + "\n")
+		}
+
+		// Appends second half of file.
+		if tail != -1 {
+			err = copyFile(tmp_src, tmp_dst, tail, -1)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	// Appends second half of file.
-	if tail != -1 {
-		err = copyFile(f, tmp, tail-1, -1)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Sync and close everything.
-	err = tmp.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = tmp.Close()
-	if err != nil {
-		return err
-	}
-
-	tmp, err = os.Open(tmpfname)
-	if err != nil {
-		return err
-	}
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	destfile, err := os.OpenFile(file, os.O_RDWR|os.O_TRUNC, 0600)
+	destfile, err := os.OpenFile(s.file, os.O_RDWR|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 
 	defer destfile.Close()
 
-	_, err = io.Copy(destfile, tmp)
+	_, err = io.Copy(destfile, tmp_dst)
 	if err != nil {
 		return err
 	}
 
 	err = destfile.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = tmp.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Remove(tmpfname)
 	if err != nil {
 		return err
 	}

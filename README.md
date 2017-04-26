@@ -23,31 +23,6 @@ Package 'cfg' provides functions for reading and writing configuration files and
 
 
 
-## Constants
-``` go
-const EMPTY = ""
-```
-
-
-## func ListSections
-``` go
-func ListSections(file string) (out []string, err error)
-```
-Lists all Sections in config file.
-
-
-## func ReadFile
-``` go
-func ReadFile(file, section string) (out map[string][]string, err error)
-```
-Returns map of specific [section] within configuration file.
-
-
-## func SetFile
-``` go
-func SetFile(file, section, key string, value ...string) error
-```
-Writes key = values under [section] to File.
 
 
 
@@ -65,24 +40,13 @@ type Store struct {
 
 
 
-### func Load
+
+
+### func (\*Store) Defaults
 ``` go
-func Load(file string) (out *Store, err error)
+func (s *Store) Defaults(input string) (err error)
 ```
-Reads configuration file and returns Store.
-
-
-### func NewStore
-``` go
-func NewStore() (out *Store)
-```
-
-### func ReadOnly
-``` go
-func ReadOnly(file string) (out *Store, err error)
-```
-Reads configuration file and returns Store, changes are not saved to disk.
-
+Sets default settings for configuration store, ignores if already set.
 
 
 
@@ -94,35 +58,51 @@ Returns true if section or section and key exists.
 
 
 
+### func (\*Store) File
+``` go
+func (s *Store) File(file string) (err error)
+```
+Reads configuration file and returns Store, file must exist even if empty.
+
+
+
 ### func (\*Store) Get
 ``` go
-func (s *Store) Get(section, key string) []string
+func (s *Store) Get(section, key string) string
 ```
-Returns array of all retrieved string values under section with key.
+Return only the first entry, if there are multiple entries the rest are skipped.
 
 
 
-### func (\*Store) ListKeys
+### func (\*Store) Keys
 ``` go
-func (s *Store) ListKeys(section string) (out []string)
+func (s *Store) Keys(section string) (out []string)
 ```
 Returns keys of section specified.
 
 
 
-### func (\*Store) ListSections
+### func (\*Store) MGet
 ``` go
-func (s *Store) ListSections() (out []string)
+func (s *Store) MGet(section, key string) []string
+```
+Returns array of all retrieved string values under section with key.
+
+
+
+### func (\*Store) Save
+``` go
+func (s *Store) Save(sections ...string) error
+```
+Saves [section](s) to file, recording all key = value pairs, if empty, save all sections.
+
+
+
+### func (\*Store) Sections
+``` go
+func (s *Store) Sections() (out []string)
 ```
 Returns array of all sections in config file.
-
-
-
-### func (\*Store) SGet
-``` go
-func (s *Store) SGet(section, key string) string
-```
-Return a single string entry of values under section with key.
 
 
 
@@ -134,11 +114,12 @@ Sets key = values under [section], updates Store and saves to file.
 
 
 
-### func (\*Store) SetDefaults
+### func (\*Store) Unset
 ``` go
-func (s *Store) SetDefaults(section string, input map[string][]string)
+func (s *Store) Unset(input ...string)
 ```
-Sets default settings for configuration store, ignores if already set.
+Unsets a specified key, or specified section.
+If section is empty, section is removed.
 
 
 
