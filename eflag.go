@@ -169,7 +169,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	// Implement new Usage function.
 	s.Usage = func() {
 		if s.Header != "" {
-			fmt.Fprintf(s.out, "%s\n\n", s.Header)
+			fmt.Fprintf(s.out, "%s\n", s.Header)
 		} else {
 			if s.name == "" {
 				fmt.Fprintf(s.out, "Available modifiers:\n")
