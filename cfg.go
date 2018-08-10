@@ -228,7 +228,7 @@ func cleanSplit(input string, sepr rune, instances int) (out []string) {
 					skip = false
 					continue
 				} else if instances > 1 || instances < 0 { 
-					out = append(out, input[last:n])
+					out = append(out, strings.Replace(input[last:n], "\\,", ",", -1))
 					last = n
 					instances--
 				}
@@ -455,6 +455,7 @@ func (s *Store) Save(sections ...string) error {
 				} else {
 					str = txt
 				}
+				str = strings.Replace(str, ",", "\\,", -1)
 				if n == vlen-1 {
 					_, err = dst.WriteString(str + "\n")
 				} else {
