@@ -143,9 +143,9 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 
 	// Split bool flags so that '-abc' becomes '-a -b -c' before being parsed.
 	for i, a := range args {
-		if !strings.Contains(a, "-") { continue }
+		if !strings.HasPrefix(a, "-") { continue }
+		if strings.HasPrefix(a, "--") { continue }
 		if strings.Contains(a, "=") { continue }
-		if strings.Contains(a, "--") { continue }
 		a = strings.TrimPrefix(a, "-")
 		if len(a) == 0 { continue }
 		args[i] = fmt.Sprintf("-%c", a[0])
