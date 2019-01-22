@@ -276,7 +276,9 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 		var added_keys []string
 
 		write_ok := func(key string) bool {
-			if overwrite { return true }
+			if overwrite { 
+				return true 
+			}
 			for _, k := range added_keys {
 				if k == key { return true }
 			}
@@ -308,6 +310,7 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 						}	
 				}
 				if write_ok(key) {
+					delete(s.cfgStore[section], key)
 					for _, v := range cleanSplit(txt, ',', -1) {
 						if len(v) > 0 {
 							s.cfgStore[section][key] = append(s.cfgStore[section][key], strings.TrimSpace(v))
