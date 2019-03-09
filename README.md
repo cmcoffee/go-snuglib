@@ -105,7 +105,8 @@ Log as Fatal, then quit.
 func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error)
 ```
 Opens a new log file for writing, max_size is threshold for rotation,
-max_rotation is number of previous logs to hold on to.
+max_rotation is number of previous logs to hold on to. Set max_size_mb to 0 to
+disable file rotation.
 
 #### func  Flash
 
