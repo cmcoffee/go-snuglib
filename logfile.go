@@ -36,15 +36,17 @@ func (f *logFile) Write(p []byte) (n int, err error) {
 	f.write_lock.Lock()
 	defer f.write_lock.Unlock()
 
-	if f.output == to_FILE && int64(len(p))+f.cur_size >= f.max_size {
+	if f.output == to_FILE && int64(len(p))+f.cur_size >= f.max_size && f.max_size > 0 {
 		f.output = to_BUFFER
 
-		// Retry on file rotation failure.
+		// Rotate files in background while writing to memory.
 		go func() {
-			if err := f.rotator(); err != nil && FatalOnFileError {
-				Fatal(err)
-			} else {
-				Close(f.filename)
+			if err := f.rotator(); err != nil { 
+				if FatalOnFileError {
+					Fatal(err)
+				} else {
+					Close(f.filename)
+				}
 			}
 		}()
 	}
@@ -59,6 +61,7 @@ func (f *logFile) Write(p []byte) (n int, err error) {
 }
 
 // Opens a new log file for writing, max_size is threshold for rotation, max_rotation is number of previous logs to hold on to.
+// Set max_size_mb to 0 to disable file rotation.
 func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error) {
 	max_size := int64(max_size_mb * 1048576)
 	fpath, _ := filepath.Split(filename)
