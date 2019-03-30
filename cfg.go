@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"sort"
+	"strconv"
 )
 
 type Store struct {
@@ -91,6 +92,115 @@ func (s *Store) Get(section, key string) string {
 
 	return result[0]
 }
+
+// Get Boolean Value from config.
+func (s *Store) GetBool(section, key string) (output bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+
+	if s.cfgStore == nil {
+		return false
+	}
+
+	var (
+		result []string
+		found bool
+	)
+
+	if result, found = s.cfgStore[section][key]; !found {
+		return false
+	}
+
+	result_str := strings.ToLower(result[0])
+	switch result_str {
+		case "yes":
+			return true
+		case "true":
+			return true
+		default: 
+			return false
+	}
+
+	return
+}
+
+// Get Int64 Value from config.
+func (s *Store) GetInt(section, key string) (output int64) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+
+	if s.cfgStore == nil {
+		return 0
+	}
+
+	var (
+		result []string
+		found bool
+	)
+
+	if result, found = s.cfgStore[section][key]; !found {
+		return 0
+	}
+
+	output, _ = strconv.ParseInt(result[0], 10, 64)
+
+	return
+}
+
+// Get UInt64 Value from config.
+func (s *Store) GetUint(section, key string) (output uint64) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+
+	if s.cfgStore == nil {
+		return 0
+	}
+
+	var (
+		result []string
+		found bool
+	)
+
+	if result, found = s.cfgStore[section][key]; !found {
+		return 0
+	}
+
+	output, _ = strconv.ParseUint(result[0], 10, 64)
+
+	return
+}
+
+// Get Float64 Value from config.
+func (s *Store) GetFloat(section, key string) (output float64) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+
+	if s.cfgStore == nil {
+		return 0.0
+	}
+
+	var (
+		result []string
+		found bool
+	)
+
+	if result, found = s.cfgStore[section][key]; !found {
+		return 0.0
+	}
+
+	output, _ = strconv.ParseFloat(result[0], 64)
+
+	return
+}
+
 
 // Returns array of all sections in config file.
 func (s *Store) Sections() (out []string) {
@@ -181,7 +291,7 @@ func (s *Store) Unset(input ...string) {
 }
 
 // Sets key = values under [section], updates Store and saves to file.
-func (s *Store) Set(section, key string, value ...string) (err error) {
+func (s *Store) Set(section, key string, value ... interface{}) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	section = strings.ToLower(section)
@@ -193,7 +303,7 @@ func (s *Store) Set(section, key string, value ...string) (err error) {
 	}
 
 	for _, val := range value {
-		newValue = append(newValue, val)
+		newValue = append(newValue, fmt.Sprintf("%v", val))
 	}
 
 	// Create new map if one doesn't exist.
@@ -201,7 +311,7 @@ func (s *Store) Set(section, key string, value ...string) (err error) {
 		s.cfgStore[section] = make(map[string][]string)
 	}
 
-	if len(value[0]) == 0 {
+	if len(value) == 0 {
 		delete(s.cfgStore[section], key)
 	} else {
 		s.cfgStore[section][key] = newValue
