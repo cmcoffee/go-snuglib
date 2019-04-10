@@ -52,7 +52,7 @@ func Defer(closer interface{}) {
 // then proceeds to send a signal to the global defer/shutdown handler
 func Exit(exit_code int) {
 	if r := recover(); r != nil {
-		_, f, line, _ := runtime.Caller(3)
+		_, f, line, _ := runtime.Caller(4)
 		_, file := filepath.Split(f)
 		Debug(string(debug.Stack())) // Output full stacktrace to Debug logger.
 		Fatal("(panic) %s, line %d: %s", file, line, r)
