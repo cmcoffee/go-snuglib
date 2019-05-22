@@ -73,6 +73,8 @@ func (s *EFlagSet) PrintDefaults() {
 
 	output := tabwriter.NewWriter(s.out, 34, 8, 1, ' ', 0)
 
+	var bottom_text []string
+
 	s.VisitAll(func(flag *flag.Flag) {
 		if flag.Usage == "" {
 			return
@@ -106,8 +108,13 @@ func (s *EFlagSet) PrintDefaults() {
 		}
 		text = append(text, fmt.Sprintf("\t%s\n", flag.Usage))
 
-		fmt.Fprintf(output, strings.Join(text[0:], ""))
+		if len(name) > 1 && alias == "" {
+			bottom_text = append(bottom_text, strings.Join(text[0:], ""))
+		} else { 
+			fmt.Fprintf(output, strings.Join(text[0:], ""))
+		}
 	})
+	fmt.Fprintf(output, strings.Join(bottom_text[0:], ""))
 	fmt.Fprintf(output, "  --help\tDisplays usage information.\n")
 	output.Flush()
 }
