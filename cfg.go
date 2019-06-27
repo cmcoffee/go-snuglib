@@ -326,30 +326,63 @@ func cfgErr(line int) error {
 
 // Splits on rune
 func cleanSplit(input string, sepr rune, instances int) (out []string) {
-	var skip bool
-	var last int
+	var skip, quoted bool
+	var last, q_start, q_end int
+
+	q_start = -1
+	q_end = -1
+	i_len := len(input)
 
 	for n, ch := range input {
 		switch ch {
+			case '"':
+				if !quoted && !skip {
+					quoted = true
+					if i_len >= n + 1 {
+						q_start = n + 1
+					}
+				} else if quoted && !skip {
+					quoted = false
+					q_end = n 
+				}
 			case '\\':
 				skip = true
 			case sepr:
-				if skip {
-					skip = false
-					continue
-				} else if instances > 1 || instances < 0 { 
-					out = append(out, strings.Replace(input[last:n], "\\,", ",", -1))
-					last = n
-					instances--
+				if !quoted {
+					if skip {
+						skip = false
+					} else if instances != 0 {
+						if q_start >= 0 {
+							if q_end == -1 {
+								q_end = n
+							}
+							out = append(out, input[q_start:q_end])
+							q_start = -1
+							q_end = -1
+						} else {	
+							out = append(out, input[last:n])
+						}
+						last = n
+						instances--
+					}
 				}
 			default:
 				skip = false
 		}
 	}
-	if instances !=
-	 0 {
+
+	if instances > 0  {
 		out = append(out, input[last:])
 	}
+
+	if instances < 0 { 
+		if q_start >= 0 && q_end >= 0 {
+			out = append(out, input[q_start:q_end])
+		} else {
+			out = append(out, input[last:])
+		}
+	}
+
 	for n, _ := range out {
 		olen := len(out[n])
 		if olen > 0 {
@@ -418,9 +451,11 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 						if _, ok := s.cfgStore[section][key]; !ok {
 							added_keys = append(added_keys, key)
 						}	
+						if write_ok(key) {
+							delete(s.cfgStore[section], key)
+						}
 				}
 				if write_ok(key) {
-					delete(s.cfgStore[section], key)
 					for _, v := range cleanSplit(txt, ',', -1) {
 						if len(v) > 0 {
 							s.cfgStore[section][key] = append(s.cfgStore[section][key], strings.TrimSpace(v))
@@ -563,12 +598,14 @@ func (s *Store) Save(sections ...string) error {
 				return
 			}
 			for n, txt := range v {
+				if strings.Contains(txt, ",") {
+					txt = strconv.Quote(txt)
+				}
 				if n > 0 {
 					str = fmt.Sprintf("%s%s", spacer, txt)
 				} else {
 					str = txt
 				}
-				str = strings.Replace(str, ",", "\\,", -1)
 				if n == vlen-1 {
 					_, err = dst.WriteString(str + "\n")
 				} else {
