@@ -333,6 +333,10 @@ func cleanSplit(input string, sepr rune, instances int) (out []string) {
 	q_end = -1
 	i_len := len(input)
 
+	//if instances > 0 {
+	//	instances++
+	//}
+
 	for n, ch := range input {
 		switch ch {
 			case '"':
@@ -371,7 +375,7 @@ func cleanSplit(input string, sepr rune, instances int) (out []string) {
 		}
 	}
 
-	if instances > 0  {
+	if instances >= 0  {
 		out = append(out, input[last:])
 	}
 
@@ -414,7 +418,7 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 
 	for sc.Scan() {
 		line++
-		txt := strings.TrimSpace(cleanSplit(sc.Text(), '#', 2)[0])
+		txt := strings.TrimSpace(cleanSplit(sc.Text(), '#', 1)[0])
 
 		var added_keys []string
 
@@ -444,7 +448,7 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 				if section == empty {
 					return cfgErr(line)
 				}
-				split := cleanSplit(txt, '=', 2)
+				split := cleanSplit(txt, '=', 1)
 				if len(split) == 2 {
 						key = strings.ToLower(strings.TrimSpace(split[0]))
 						txt = strings.TrimSpace(split[1])
