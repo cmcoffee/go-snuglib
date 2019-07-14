@@ -43,6 +43,27 @@ const (
 
 const empty = ""
 
+// Returns entire line as one string, (Single Get)
+func (s *Store) SGet(section, key string) string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	section = strings.ToLower(section)
+	key = strings.ToLower(key)
+
+	if s.cfgStore == nil {
+		return empty
+	}
+
+	if result, found := s.cfgStore[section][key]; !found {
+		return empty
+	} else {
+		if len(result) == 0 {
+			return empty
+		}
+		return strings.Join(result, ", ")
+	}
+}
+
 // Returns array of all retrieved string values under section with key.
 func (s *Store) MGet(section, key string) []string {
 	s.mutex.RLock()
@@ -51,14 +72,14 @@ func (s *Store) MGet(section, key string) []string {
 	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
-		return []string{empty}
+		return []string{}
 	}
 
 	if result, found := s.cfgStore[section][key]; !found {
-		return []string{empty}
+		return []string{}
 	} else {
 		if len(result) == 0 {
-			return []string{empty}
+			return []string{}
 		}
 		return result
 	}
