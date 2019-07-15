@@ -498,6 +498,11 @@ func (s *Store) Defaults(input string) (err error) {
 	return s.config_parser(strings.NewReader(input), false)
 }
 
+// Will parse a string, but overwrite existing config.
+func (s *Store) Parse(input string) (err error) {
+	return s.config_parser(strings.NewReader(input), true)
+}
+
 // Reads configuration file and returns Store, file must exist even if empty.
 func (s *Store) File(file string) (err error) {
 	f, err := os.Open(file)
@@ -513,8 +518,17 @@ func (s *Store) File(file string) (err error) {
 	return
 }
 
+// TrimSave is similar to Save, however it will trim unusued keys.
+func (s *Store) TrimSave(sections ...string) error {
+	return s.save(true, sections...)
+}
+
 // Saves [section](s) to file, recording all key = value pairs, if empty, save all sections.
 func (s *Store) Save(sections ...string) error {
+	return s.save(false, sections...)
+}
+
+func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 
 	if s.file == empty {
 		return fmt.Errorf("No file specified for write operation.")
@@ -608,6 +622,9 @@ func (s *Store) Save(sections ...string) error {
 	// Stores Key Value pairs
 	storeKV := func (dst *bytes.Buffer, k string, keymap map[string][]string) (err error) {
 			v := keymap[k]
+			if len(v) == 0 && clear_unused_keys {
+				return nil
+			}
 			_, err = dst.WriteString(k + " = ")
 			if err != nil {
 				return err
