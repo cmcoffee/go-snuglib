@@ -39,14 +39,73 @@ type EFlagSet struct {
 	Footer     string
 	alias      map[string]string
 	stringVars map[string]bool
-	*flag.FlagSet
 	out           io.Writer
 	errorHandling ErrorHandling
+	*flag.FlagSet
 }
 
-// Allows for quick command line argument parsing, flag's default usage.
-func CommandLine() *EFlagSet {
-	return NewFlagSet(os.Args[0], ExitOnError)
+var cmd = EFlagSet {
+		os.Args[0],
+		"",
+		"",
+		make(map[string]string),
+		make(map[string]bool),
+		os.Stderr,
+		ExitOnError,
+		flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
+}
+
+var (
+	SetOutput = cmd.SetOutput
+	PrintDefaults = cmd.PrintDefaults
+	Alias = cmd.Alias
+	String = cmd.String
+	StringVar = cmd.StringVar
+	Arg = cmd.Arg
+	Args = cmd.Args
+	Bool = cmd.Bool
+	BoolVar = cmd.BoolVar
+	Duration = cmd.Duration
+	DurationVar = cmd.DurationVar
+	Float64 = cmd.Float64
+	Float64Var = cmd.Float64Var
+	Int = cmd.Int
+	IntVar = cmd.IntVar
+	Int64 = cmd.Int64
+	Int64Var = cmd.Int64Var
+	Lookup = cmd.Lookup
+	NArg = cmd.NArg
+	NFlag = cmd.NFlag
+	Name = cmd.Name
+	Output = cmd.Output
+	Parsed = cmd.Parsed
+	Uint = cmd.Uint
+	UintVar = cmd.UintVar
+	Uint64 = cmd.Uint64
+	Uint64Var = cmd.Uint64Var
+	Var = cmd.Var
+	Visit = cmd.Visit
+	VisitAll = cmd.VisitAll
+)
+
+func Header(input string) {
+	cmd.Header = input
+}
+
+func Footer(input string) {
+	cmd.Footer = input
+}
+
+func Parse() (err error) {
+	if len(os.Args) > 1 {
+		return cmd.Parse(os.Args[1:])
+	} else {
+		return cmd.Parse([]string{})
+	}
+}
+
+func Usage() {
+	cmd.Usage()
 }
 
 // Change where output will be directed.
@@ -62,9 +121,9 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *EFlagSet {
 		"",
 		make(map[string]string),
 		make(map[string]bool),
-		flag.NewFlagSet(name, flag.ContinueOnError),
 		os.Stderr,
 		errorHandling,
+		flag.NewFlagSet(name, flag.ContinueOnError),
 	}
 }
 
@@ -186,6 +245,16 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 
 	err = s.FlagSet.Parse(args)
 	s.out = stdOut
+
+	// Remove example text from strings, ie.. <server to connect with>
+	clear_examples := func(f *flag.Flag) {
+		val := f.Value.String()
+		if strings.HasPrefix(val, "<") && strings.HasSuffix(val, ">") {
+			f.Value.Set("")
+		} 
+	}
+
+	s.FlagSet.VisitAll(clear_examples)
 
 	// Implement new Usage function.
 	s.Usage = func() {
