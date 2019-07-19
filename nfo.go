@@ -182,42 +182,58 @@ func SetPrefix(logger int, prefix_str string) {
 
 // Don't log, write text to standard error which will be overwritten on the next output.
 func Flash(vars ...interface{}) {
-	write2log(_flash_txt, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(_flash_txt, vars...)
+	}
 }
 
 // Don't log, just print text to standard out.
 func Stdout(vars ...interface{}) {
-	write2log(_print_txt|_flash_txt, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(_print_txt|_flash_txt, vars...)
+	}
 }
 
 // Don't log, just print text to standard error.
 func Stderr(vars ...interface{}) {
-	write2log(_stderr_txt|_flash_txt, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(_stderr_txt|_flash_txt, vars...)
+	}
 }
 
 // Log as Info.
 func Log(vars ...interface{}) {
-	write2log(INFO, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(INFO, vars...)
+	}
 }
 
 // Log as Info, as auxilary output.
 func Aux(vars ...interface{}) {
-	write2log(AUX, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(AUX, vars...)
+	}
 }
 
 // Log as Error.
 func Err(vars ...interface{}) {
-	write2log(ERROR, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(ERROR, vars...)
+	}
 }
 
 // Log as Warn.
 func Warn(vars ...interface{}) {
-	write2log(WARN, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(WARN, vars...)
+	}
 }
 
 // Log as Notice.
 func Notice(vars ...interface{}) {
-	write2log(NOTICE, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(NOTICE, vars...)
+	}
 }
 
 // Log as Fatal, then quit.
@@ -233,12 +249,16 @@ func Fatal(vars ...interface{}) {
 
 // Log as Debug.
 func Debug(vars ...interface{}) {
-	write2log(DEBUG, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(DEBUG, vars...)
+	}	
 }
 
 // Log as Trace.
 func Trace(vars ...interface{}) {
-	write2log(TRACE, vars...)
+	if atomic.LoadInt32(&fatal_triggered) == 0 {
+		write2log(TRACE, vars...)
+	}
 }
 
 // Prepares output text and sends to appropriate logging destinations.

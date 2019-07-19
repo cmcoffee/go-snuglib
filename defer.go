@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"fmt"
 )
 
 var (
@@ -89,7 +90,7 @@ func init() {
 		for {
 			s := <-signalChan
 
-			Flash("%s  ", string(flush_line))
+			write2log(_flash_txt, fmt.Sprintf("%s  ", string(flush_line)))
 
 			mutex.Lock()
 			cb := callbacks[s]
@@ -115,7 +116,7 @@ func init() {
 		// Run through all globalDefer functions.
 		for _, x := range globalDefer {
 			if err = x(); err != nil {
-				Err(err)
+				write2log(ERROR, err.Error())
 			}
 		}
 
@@ -128,7 +129,7 @@ func init() {
 		}
 
 		// Blank out last line.
-		Flash()
+		write2log(_flash_txt)
 
 		// Finally exit the application
 		select {
