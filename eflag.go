@@ -105,7 +105,9 @@ func Parse() (err error) {
 }
 
 func Usage() {
-	cmd.Usage()
+	if !cmd.Parsed() {
+		cmd.Parse([]string{"--help"})
+	}
 }
 
 // Change where output will be directed.
@@ -114,8 +116,8 @@ func (s *EFlagSet) SetOutput(output io.Writer) {
 }
 
 // Load a flag created with flag package.
-func NewFlagSet(name string, errorHandling ErrorHandling) *EFlagSet {
-	return &EFlagSet{
+func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
+	output = &EFlagSet{
 		name,
 		"",
 		"",
@@ -125,6 +127,10 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *EFlagSet {
 		errorHandling,
 		flag.NewFlagSet(name, flag.ContinueOnError),
 	}
+	output.Usage = func() {
+		output.Parse([]string{"--help"})
+	}
+	return output
 }
 
 // Reads through all flags available and outputs with better formatting.
@@ -159,7 +165,11 @@ func (s *EFlagSet) PrintDefaults() {
 			text = append(text, fmt.Sprintf("%s-%s", space, name))
 		}
 		if is_string == true {
-			text = append(text, fmt.Sprintf("=%q", flag.DefValue))
+			if strings.HasPrefix(flag.DefValue, "<") && strings.HasSuffix(flag.DefValue, ">") {
+				text = append(text, fmt.Sprintf("=%q", flag.DefValue[1:len(flag.DefValue)-1]))
+			} else {
+				text = append(text, fmt.Sprintf("=%q", flag.DefValue))
+			}
 		} else {
 			if flag.DefValue != "true" && flag.DefValue != "false" {
 				text = append(text, fmt.Sprintf("=%s", flag.DefValue))
@@ -260,15 +270,14 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	s.Usage = func() {
 		if s.Header != "" {
 			fmt.Fprintf(s.out, "%s\n", s.Header)
+		} 
+		if s.name == "" {
+			fmt.Fprintf(s.out, "Available modifiers:\n")
 		} else {
-			if s.name == "" {
-				fmt.Fprintf(s.out, "Available modifiers:\n")
+			if s.name == os.Args[0] {
+				fmt.Fprintf(s.out, "Available '%s' modifiers:\n", os.Args[0])
 			} else {
-				if s.name == os.Args[0] {
-					fmt.Fprintf(s.out, "Available %s modifiers:\n", os.Args[0])
-				} else {
-					fmt.Fprintf(s.out, "Available %s modifiers:\n", s.name)
-				}
+				fmt.Fprintf(s.out, "Available '%s' modifiers:\n", s.name)
 			}
 		}
 		s.PrintDefaults()
