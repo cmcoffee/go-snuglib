@@ -28,6 +28,7 @@ const (
 	_flash_txt
 	_print_txt
 	_stderr_txt
+	_bypass_lock
 )
 
 // Standard Loggers, minus debug and trace.
@@ -53,9 +54,11 @@ var (
 	flush_needed       bool
 	fatal_triggered    int32
 	msgBuffer          bytes.Buffer
+	noFlushBuffer   bytes.Buffer
 	enabled_logging    = STD
 	enabled_exports    = STD
 	mutex              sync.Mutex
+	noFlushMutex       sync.Mutex
 	use_ts             = true
 	use_utc            = false
 )
@@ -182,65 +185,69 @@ func SetPrefix(logger int, prefix_str string) {
 
 // Don't log, write text to standard error which will be overwritten on the next output.
 func Flash(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(_flash_txt, vars...)
+	write2log(_flash_txt, vars...)
+}
+
+// Don't log, just print text to stnadard out, bypassing flushing.
+func NoFlush(vars ...interface{}) {
+	noFlushMutex.Lock()
+	defer noFlushMutex.Unlock()
+
+	// Reset buffer.
+	noFlushBuffer.Reset()
+
+	outputFactory(&noFlushBuffer, vars...)
+	output := noFlushBuffer.Bytes()
+	
+	bufferLen := utf8.RuneCount(output)
+
+	if bufferLen > 1 && output[bufferLen-1] != '\n' {
+		output = append(output, '\n')
 	}
+
+	io.Copy(os.Stdout, bytes.NewReader(output))
 }
 
 // Don't log, just print text to standard out.
 func Stdout(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(_print_txt|_flash_txt, vars...)
-	}
+	write2log(_print_txt|_flash_txt, vars...)
 }
 
 // Don't log, just print text to standard error.
 func Stderr(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(_stderr_txt|_flash_txt, vars...)
-	}
+	write2log(_stderr_txt|_flash_txt, vars...)
 }
 
 // Log as Info.
 func Log(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(INFO, vars...)
-	}
+	write2log(INFO, vars...)
 }
 
 // Log as Info, as auxilary output.
 func Aux(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(AUX, vars...)
-	}
+	write2log(AUX, vars...)
 }
 
 // Log as Error.
 func Err(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(ERROR, vars...)
-	}
+	write2log(ERROR, vars...)
 }
 
 // Log as Warn.
 func Warn(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(WARN, vars...)
-	}
+	write2log(WARN, vars...)
 }
 
 // Log as Notice.
 func Notice(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(NOTICE, vars...)
-	}
+	write2log(NOTICE, vars...)
 }
 
 // Log as Fatal, then quit.
 func Fatal(vars ...interface{}) {
 	if atomic.CompareAndSwapInt32(&fatal_triggered, 0, 1) {
 		// Defer fatal output, so it is the last log entry displayed.
-		Defer(func() { write2log(FATAL, vars...) })
+		Defer(func() { write2log(FATAL|_bypass_lock, vars...) })
 		signalChan <- os.Kill
 		<-exit_lock
 		os.Exit(1)
@@ -249,15 +256,40 @@ func Fatal(vars ...interface{}) {
 
 // Log as Debug.
 func Debug(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(DEBUG, vars...)
-	}	
+	write2log(DEBUG, vars...)
 }
 
 // Log as Trace.
 func Trace(vars ...interface{}) {
-	if atomic.LoadInt32(&fatal_triggered) == 0 {
-		write2log(TRACE, vars...)
+	write2log(TRACE, vars...)
+}
+
+// sprintf
+func outputFactory(buffer io.Writer, vars ...interface{}) {
+	vlen := len(vars)
+
+	if vlen == 0 {
+		fmt.Fprintf(buffer, "")
+		vlen = 1
+	} else if vlen == 1 {
+		if o, ok := vars[0].([]byte); ok {
+			buffer.Write(o)
+		} else {
+			fmt.Fprintf(buffer, "%v", vars[0])
+		}
+	} else {
+		str, ok := vars[0].(string)
+		if ok {
+			fmt.Fprintf(buffer, str, vars[1:]...)
+		} else {
+			for n, item := range vars {
+				if n == 0 || n == vlen-1 {
+					fmt.Fprintf(buffer, "%v", item)
+				} else {
+					fmt.Fprintf(buffer, "%v, ", item)
+				}
+			}
+		}
 	}
 }
 
@@ -267,13 +299,14 @@ func write2log(flag int, vars ...interface{}) {
 		return
 	}
 
+	if atomic.LoadInt32(&fatal_triggered) == 1 && flag&_bypass_lock != _bypass_lock {
+		return
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	logger := l_map[flag]
-
-	// Reset buffer.
-	msgBuffer.Reset()
 
 	var pre []byte
 
@@ -284,34 +317,14 @@ func write2log(flag int, vars ...interface{}) {
 		pre = append(pre, []byte(prefix[flag])[0:]...)
 	}
 
-	vlen := len(vars)
+	// Reset buffer. 
+	msgBuffer.Reset()
 
-	if vlen == 0 {
-		fmt.Fprintf(&msgBuffer, "")
-		vlen = 1
-	} else if vlen == 1 {
-		if o, ok := vars[0].([]byte); ok {
-			msgBuffer.Write(o)
-		} else {
-			fmt.Fprintf(&msgBuffer, "%v", vars[0])
-		}
-	} else {
-		str, ok := vars[0].(string)
-		if ok {
-			fmt.Fprintf(&msgBuffer, str, vars[1:]...)
-		} else {
-			for n, item := range vars {
-				if n == 0 || n == vlen-1 {
-					fmt.Fprintf(&msgBuffer, "%v", item)
-				} else {
-					fmt.Fprintf(&msgBuffer, "%v, ", item)
-				}
-			}
-		}
-	}
+	outputFactory(&msgBuffer, vars...)
 
+	output := msgBuffer.Bytes()
 	msg := msgBuffer.String()
-	output := append(pre, msgBuffer.Bytes()[0:]...)
+	output = append(pre, output[0:]...)
 	bufferLen := utf8.RuneCount(output)
 
 	if bufferLen > 0 && output[len(output)-1] != '\n' && flag != _flash_txt {
@@ -321,7 +334,11 @@ func write2log(flag int, vars ...interface{}) {
 
 	// Clear out last flash text.
 	if flush_needed && (flag&_flash_txt == _flash_txt || logger.out1 != None) {
-		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:flush_len]))
+		if bufferLen == 0 {
+			fmt.Fprintf(os.Stderr, "\r%s  \r", string(flush_line[0:flush_len]))
+		} else { 
+			fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:flush_len]))
+		}
 		flush_needed = false
 	}
 

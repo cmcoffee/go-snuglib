@@ -9,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"fmt"
 )
 
 var (
@@ -90,7 +89,7 @@ func init() {
 		for {
 			s := <-signalChan
 
-			write2log(_flash_txt, fmt.Sprintf("%s  ", string(flush_line)))
+			write2log(_flash_txt|_bypass_lock)
 
 			mutex.Lock()
 			cb := callbacks[s]
@@ -116,7 +115,7 @@ func init() {
 		// Run through all globalDefer functions.
 		for _, x := range globalDefer {
 			if err = x(); err != nil {
-				write2log(ERROR, err.Error())
+				write2log(ERROR|_bypass_lock, err.Error())
 			}
 		}
 
@@ -127,9 +126,6 @@ func init() {
 		for name := range open_files {
 			Close(name)
 		}
-
-		// Blank out last line.
-		write2log(_flash_txt)
 
 		// Finally exit the application
 		select {
