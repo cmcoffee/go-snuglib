@@ -247,7 +247,7 @@ func Notice(vars ...interface{}) {
 func Fatal(vars ...interface{}) {
 	if atomic.CompareAndSwapInt32(&fatal_triggered, 0, 1) {
 		// Defer fatal output, so it is the last log entry displayed.
-		Defer(func() { write2log(FATAL|_bypass_lock, vars...) })
+		write2log(FATAL|_bypass_lock, vars...)
 		signalChan <- os.Kill
 		<-exit_lock
 		os.Exit(1)
@@ -295,11 +295,16 @@ func outputFactory(buffer io.Writer, vars ...interface{}) {
 
 // Prepares output text and sends to appropriate logging destinations.
 func write2log(flag int, vars ...interface{}) {
-	if enabled_logging&flag != flag && flag&_flash_txt != _flash_txt {
-		return
-	}
 
-	if atomic.LoadInt32(&fatal_triggered) == 1 && flag&_bypass_lock != _bypass_lock {
+	if atomic.LoadInt32(&fatal_triggered) == 1 {
+		if flag&_bypass_lock == _bypass_lock {
+			flag ^= _bypass_lock
+		} else {
+			return
+		}
+	}
+	
+	if enabled_logging&flag != flag && flag&_flash_txt != _flash_txt {
 		return
 	}
 
