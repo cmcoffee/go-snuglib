@@ -47,8 +47,6 @@ const empty = ""
 func (s *Store) SGet(section, key string) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return empty
@@ -68,8 +66,6 @@ func (s *Store) SGet(section, key string) string {
 func (s *Store) MGet(section, key string) []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return []string{}
@@ -89,8 +85,6 @@ func (s *Store) MGet(section, key string) []string {
 func (s *Store) Get(section, key string) string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return empty
@@ -118,8 +112,6 @@ func (s *Store) Get(section, key string) string {
 func (s *Store) GetBool(section, key string) (output bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return false
@@ -151,8 +143,6 @@ func (s *Store) GetBool(section, key string) (output bool) {
 func (s *Store) GetInt(section, key string) (output int64) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return 0
@@ -176,8 +166,6 @@ func (s *Store) GetInt(section, key string) (output int64) {
 func (s *Store) GetUint(section, key string) (output uint64) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return 0
@@ -201,8 +189,6 @@ func (s *Store) GetUint(section, key string) (output uint64) {
 func (s *Store) GetFloat(section, key string) (output float64) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 
 	if s.cfgStore == nil {
 		return 0.0
@@ -286,10 +272,6 @@ func (s *Store) Exists(input ...string) (found bool) {
 // If section is empty, section is removed.
 func (s *Store) Unset(input ...string) {
 
-	for i, val := range input {
-		input[i] = strings.ToLower(val)
-	}
-
 	if s.cfgStore == nil {
 		return
 	}
@@ -314,8 +296,6 @@ func (s *Store) Unset(input ...string) {
 func (s *Store) Set(section, key string, value ...interface{}) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	section = strings.ToLower(section)
-	key = strings.ToLower(key)
 	var newValue []string
 
 	if s.cfgStore == nil {
@@ -458,7 +438,7 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 		}
 		if txt[0] == '[' && txt[len(txt)-1] == ']' {
 			added_keys = make([]string, 0)
-			section = strings.ToLower(strings.TrimSuffix(strings.TrimPrefix(txt, "["), "]"))
+			section = strings.TrimSuffix(strings.TrimPrefix(txt, "["), "]")
 			for _, s := range added_sections {
 				if s == section {
 					return fmt.Errorf("Duplicate section [%s] encountered on line %d.", section, line)
@@ -474,7 +454,7 @@ func (s *Store) config_parser(input io.Reader, overwrite bool) (err error) {
 			}
 			split := cleanSplit(txt, '=', 1)
 			if len(split) == 2 {
-				key = strings.ToLower(strings.TrimSpace(split[0]))
+				key = strings.TrimSpace(split[0])
 				txt = strings.TrimSpace(split[1])
 				if _, ok := s.cfgStore[section][key]; !ok {
 					added_keys = append(added_keys, key)
@@ -598,7 +578,7 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 
 		for s.Scan() {
 			line++
-			b := strings.ToLower(strings.TrimSpace(s.Text()))
+			b := strings.TrimSpace(s.Text())
 			l := len(b)
 
 			if l > 0 && b[0] == '#' || l == 0 {
@@ -675,7 +655,6 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 	var src_buf []byte
 
 	for _, section := range sections {
-		section = strings.ToLower(section)
 		wb_sz := tmp_dst.Len()
 		rd_sz := cap(src_buf)
 
@@ -737,7 +716,7 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 					}
 				default:
 					if strings.ContainsRune(txt, '=') {
-						key := strings.ToLower(strings.TrimSpace(strings.Split(txt, "=")[0]))
+						key := strings.TrimSpace(strings.Split(txt, "=")[0])
 						if err = storeKV(tmp_dst, key, s.cfgStore[section]); err != nil {
 							return err
 						}
