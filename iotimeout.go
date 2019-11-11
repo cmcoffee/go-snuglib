@@ -65,8 +65,8 @@ type ReadCloser struct {
 // Timeout ReadCloser: Adds a timer to io.Reader
 func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 	t := new(Reader)
-	t.input = make(chan []byte)
-	t.output = make(chan resp)
+	t.input = make(chan []byte, 1)
+	t.output = make(chan resp, 1)
 	t.expired = make(chan struct{}, 1)
 
 	go start_timer(timeout, &t.flag, t.expired)
@@ -77,7 +77,6 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 			data.n, data.err = reader.Read(<-t.input)
 			t.output <- data
 			if data.err != nil {
-				atomic.StoreInt32(&t.flag, halt)
 				break
 			}
 		}
@@ -89,15 +88,19 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 func (t *Reader) Read(p []byte) (n int, err error) {
 	t.input <- p
 
-	var data resp
-
 	select {
-	case data = <-t.output:
-		atomic.StoreInt32(&t.flag, working)
+	case data := <-t.output:
+		n = data.n
+		err = data.err
 	case <-t.expired:
 		return -1, ErrReadTimeout
 	}
-	return data.n, data.err
+	if err == nil {
+		atomic.StoreInt32(&t.flag, working)
+	} else {
+		atomic.StoreInt32(&t.flag, halt)
+	}
+	return
 }
 
 // Timeout ReadCloser: Adds a timer to io.ReadCloser
