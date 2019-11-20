@@ -368,9 +368,13 @@ func write2log(flag int, vars ...interface{}) {
 		return
 	}
 
-	_, err := io.Copy(logger.out1, bytes.NewReader(output))
-	if err != nil && FatalOnOutError {
-		go Fatal(err)
+	var err error
+
+	if logger.out1 != nil {
+		_, err := io.Copy(logger.out1, bytes.NewReader(output))
+		if err != nil && FatalOnOutError {
+			go Fatal(err)
+		}
 	}
 
 	// Preprend timestamp for file.

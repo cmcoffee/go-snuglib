@@ -3,8 +3,6 @@ package nfo
 import (
 	"os"
 	"os/signal"
-	"path/filepath"
-	"runtime"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -52,12 +50,9 @@ func Defer(closer interface{}) {
 // then proceeds to send a signal to the global defer/shutdown handler
 func Exit(exit_code int) {
 	if r := recover(); r != nil {
-		_, f, line, _ := runtime.Caller(4)
-		_, file := filepath.Split(f)
-		Debug(string(debug.Stack())) // Output full stacktrace to Debug logger.
-		Fatal("(panic) %s, line %d: %s", file, line, r)
+		Fatal("(panic) %s", string(debug.Stack()))
 	} else {
-		atomic.StoreInt32(&fatal_triggered, 1) // Ignore any Fatal() calls, we've been told to exit.
+		atomic.StoreInt32(&fatal_triggered, 2) // Ignore any Fatal() calls, we've been told to exit.
 		signalChan <- os.Kill
 		<-exit_lock
 		os.Exit(exit_code)
@@ -100,6 +95,8 @@ func init() {
 					continue
 				}
 			}
+
+			atomic.CompareAndSwapInt32(&fatal_triggered, 0, 2)
 
 			switch s {
 			case syscall.SIGINT:
