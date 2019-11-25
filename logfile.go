@@ -94,9 +94,11 @@ func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint)
 	_, err = os.Stat(fpath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.Mkdir(fpath, 0766)
-			if err != nil {
-				return err
+			if strings.Contains(fpath, string(os.PathSeparator)) {
+				err = os.Mkdir(fpath, 0766)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			return err
