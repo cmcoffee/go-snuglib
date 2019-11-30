@@ -41,6 +41,7 @@ type EFlagSet struct {
 	stringVars map[string]bool
 	out           io.Writer
 	errorHandling ErrorHandling
+	setFlags   []string
 	*flag.FlagSet
 }
 
@@ -52,6 +53,7 @@ var cmd = EFlagSet {
 		make(map[string]bool),
 		os.Stderr,
 		ExitOnError,
+		make([]string, 0),
 		flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
 }
 
@@ -125,6 +127,7 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 		make(map[string]bool),
 		os.Stderr,
 		errorHandling,
+		make([]string, 0),
 		flag.NewFlagSet(name, flag.ContinueOnError),
 	}
 	output.Usage = func() {
@@ -218,6 +221,15 @@ func (s *EFlagSet) Alias(val interface{}, name string, alias string) {
 	s.alias[name] = alias
 }
 
+func (s *EFlagSet) IsSet(name string) bool {
+	for _, k := range s.setFlags {
+		if k == name {
+			return true
+		}
+	}
+	return false
+}
+
 // Wraps around the standard flag Parse, adds header and footer.
 func (s *EFlagSet) Parse(args []string) (err error) {
 	// set usage to empty to prevent unessisary work as we dump the output of flag.
@@ -265,6 +277,12 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	}
 
 	s.FlagSet.VisitAll(clear_examples)
+
+	mark_set_flags := func(f *flag.Flag) {
+		s.setFlags = append(s.setFlags, f.Name)
+	}
+
+	s.FlagSet.Visit(mark_set_flags)
 
 	// Implement new Usage function.
 	s.Usage = func() {
