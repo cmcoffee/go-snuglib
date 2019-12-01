@@ -22,7 +22,10 @@ const (
 	ContinueOnError ErrorHandling = iota
 	ExitOnError
 	PanicOnError
+	ReturnErrorOnly
 )
+
+var ErrHelp = flag.ErrHelp
 
 // Write to nothing, to remove standard output of flag.
 type _voidText struct{}
@@ -187,7 +190,7 @@ func (s *EFlagSet) PrintDefaults() {
 		}
 	})
 	fmt.Fprintf(output, strings.Join(bottom_text[0:], ""))
-	fmt.Fprintf(output, "  --help\tDisplays usage information.\n")
+	fmt.Fprintf(output, "  --help\tDisplays this usage information.\n")
 	output.Flush()
 }
 
@@ -290,12 +293,12 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 			fmt.Fprintf(s.out, "%s\n", s.Header)
 		} 
 		if s.name == "" {
-			fmt.Fprintf(s.out, "Available modifiers:\n")
+			fmt.Fprintf(s.out, "Available options:\n")
 		} else {
 			if s.name == os.Args[0] {
-				fmt.Fprintf(s.out, "Available '%s' modifiers:\n", os.Args[0])
+				fmt.Fprintf(s.out, "Available '%s' options:\n", os.Args[0])
 			} else {
-				fmt.Fprintf(s.out, "Available '%s' modifiers:\n", s.name)
+				fmt.Fprintf(s.out, "Available '%s' options:\n", s.name)
 			}
 		}
 		s.PrintDefaults()
@@ -313,17 +316,22 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 				for _, arg := range args {
 					if strings.Contains(arg, cmd[1]) {
 						err = fmt.Errorf("%s%s", cmd[0], arg)
-						fmt.Fprintf(s.out, "%s\n\n", err.Error())
+						if s.errorHandling != ReturnErrorOnly {
+								fmt.Fprintf(s.out, "%s\n\n", errStr)
+						}
 						break
 					}
 				}
 			} else {
-				fmt.Fprintf(s.out, "%s\n\n", errStr)
+				if s.errorHandling != ReturnErrorOnly {
+					fmt.Fprintf(s.out, "%s\n\n", errStr)
+				}
 			}
-		}
+		} 
 
 		// Errorflag handling.
 		switch s.errorHandling {
+		case ReturnErrorOnly:
 		case ContinueOnError:
 			s.Usage()
 		case ExitOnError:
