@@ -39,9 +39,9 @@ func Defer(closer interface{}) {
 
 	switch closer := closer.(type) {
 	case func():
-		globalDefer = append(globalDefer, errorWrapper(closer))
+		globalDefer = append([]func() error{errorWrapper(closer)}, globalDefer[0:]...)
 	case func() error:
-		globalDefer = append(globalDefer, closer)
+		globalDefer = append([]func() error{closer}, globalDefer[0:]...)
 	}
 }
 
@@ -84,7 +84,7 @@ func init() {
 		for {
 			s := <-signalChan
 
-			write2log(_flash_txt|_bypass_lock)
+			write2log(_flash_txt | _bypass_lock)
 
 			mutex.Lock()
 			cb := callbacks[s]

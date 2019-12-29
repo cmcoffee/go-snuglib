@@ -41,7 +41,7 @@ func (f *logFile) Write(p []byte) (n int, err error) {
 
 		// Rotate files in background while writing to memory.
 		go func() {
-			if err := f.rotator(); err != nil { 
+			if err := f.rotator(); err != nil {
 				if FatalOnFileError {
 					Fatal(err)
 				} else {

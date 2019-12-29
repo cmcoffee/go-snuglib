@@ -2,25 +2,29 @@
 --
     import "github.com/cmcoffee/go-nfo"
 
+Simple package to get user input from terminal.
 
 ## Usage
 
 ```go
 const (
 	INFO   = 1 << iota // Log Information
-	AUX                // Auxilary Log
 	ERROR              // Log Errors
 	WARN               // Log Warning
 	NOTICE             // Log Notices
 	DEBUG              // Debug Logging
 	TRACE              // Trace Logging
 	FATAL              // Fatal Logging
+	AUX                // Auxilary Log
+	AUX2               // Auxilary Log
+	AUX3               // Auxilary Log
+	AUX4               // Auxilary Log
 
 )
 ```
 
 ```go
-const STD = INFO | AUX | ERROR | WARN | NOTICE | FATAL
+const STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
 ```
 Standard Loggers, minus debug and trace.
 
@@ -45,6 +49,27 @@ func Aux(vars ...interface{})
 ```
 Log as Info, as auxilary output.
 
+#### func  Aux2
+
+```go
+func Aux2(vars ...interface{})
+```
+Log as Info, as auxilary output.
+
+#### func  Aux3
+
+```go
+func Aux3(vars ...interface{})
+```
+Log as Info, as auxilary output.
+
+#### func  Aux4
+
+```go
+func Aux4(vars ...interface{})
+```
+Log as Info, as auxilary output.
+
 #### func  BlockShutdown
 
 ```go
@@ -61,6 +86,13 @@ func Close(filename string) (err error)
 Closes logging file, removes file from all loggers, removes file from open
 files.
 
+#### func  Confirm
+
+```go
+func Confirm(prompt string) bool
+```
+Get confirmation
+
 #### func  Debug
 
 ```go
@@ -75,6 +107,27 @@ func Defer(closer interface{})
 ```
 Adds a function to the global defer, function must take no arguments and either
 return nothing or return an error.
+
+#### func  DisableExport
+
+```go
+func DisableExport(flag int)
+```
+Specific which logger to not export.
+
+#### func  DisableOutput
+
+```go
+func DisableOutput(flag int)
+```
+Disable a specific logger
+
+#### func  EnableExport
+
+```go
+func EnableExport(flag int)
+```
+Specify which logs to send to syslog.
 
 #### func  Err
 
@@ -130,6 +183,13 @@ func HookSyslog(syslog_writer SyslogWriter)
 ```
 Send messages to syslog
 
+#### func  Input
+
+```go
+func Input(prompt string) string
+```
+Gets user input, used during setup and configuration.
+
 #### func  LTZ
 
 ```go
@@ -144,6 +204,13 @@ func Log(vars ...interface{})
 ```
 Log as Info.
 
+#### func  NeedAnswer
+
+```go
+func NeedAnswer(prompt string, request func(prompt string) string) (output string)
+```
+Loop until a non-blank answer is given
+
 #### func  Notice
 
 ```go
@@ -151,26 +218,26 @@ func Notice(vars ...interface{})
 ```
 Log as Notice.
 
-#### func  SetExports
+#### func  PressEnter
 
 ```go
-func SetExports(flag int)
+func PressEnter(prompt string)
 ```
-Specify which logs to send to syslog.
+Prompt to press enter.
 
-#### func  SetLoggers
+#### func  Secret
 
 ```go
-func SetLoggers(flag int)
+func Secret(prompt string) string
 ```
-Specify which loggers to enable, STD is enabled by default.
+Get Hidden/Password input, without returning information to the screen.
 
 #### func  SetOutput
 
 ```go
-func SetOutput(logger int, w io.Writer)
+func SetOutput(flag int, w io.Writer)
 ```
-Change output for logger(s).
+Enable a specific logger.
 
 #### func  SetPrefix
 

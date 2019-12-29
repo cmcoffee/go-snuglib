@@ -6,6 +6,7 @@ package nfo
 import (
 	"bytes"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
 	"sync"
@@ -18,25 +19,32 @@ import . "itoa"
 
 const (
 	INFO   = 1 << iota // Log Information
-	AUX                // Auxilary Log
 	ERROR              // Log Errors
 	WARN               // Log Warning
 	NOTICE             // Log Notices
 	DEBUG              // Debug Logging
 	TRACE              // Trace Logging
 	FATAL              // Fatal Logging
+	AUX                // Auxilary Log
+	AUX2               // Auxilary Log
+	AUX3               // Auxilary Log
+	AUX4               // Auxilary Log
 	_flash_txt
 	_print_txt
 	_stderr_txt
 	_bypass_lock
+	_no_logging
 )
 
 // Standard Loggers, minus debug and trace.
-const STD = INFO | AUX | ERROR | WARN | NOTICE | FATAL
+const STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
 
 var prefix = map[int]string{
 	INFO:   "",
 	AUX:    "",
+	AUX2:   "",
+	AUX3:   "",
+	AUX4:   "",
 	ERROR:  "[ERROR] ",
 	WARN:   "[WARN] ",
 	NOTICE: "[NOTICE] ",
@@ -52,13 +60,12 @@ var (
 	flush_len          int
 	flush_line         []rune
 	flush_needed       bool
+	piped_stdout       bool
+	piped_stderr       bool
 	fatal_triggered    int32
 	msgBuffer          bytes.Buffer
-	noFlushBuffer   bytes.Buffer
-	enabled_logging    = STD
 	enabled_exports    = STD
 	mutex              sync.Mutex
-	noFlushMutex       sync.Mutex
 	use_ts             = true
 	use_utc            = false
 )
@@ -66,14 +73,27 @@ var (
 var l_map = map[int]*_logger{
 	INFO:        {out1: os.Stdout, out2: None},
 	AUX:         {out1: os.Stdout, out2: None},
+	AUX2:        {out1: os.Stdout, out2: None},
+	AUX3:        {out1: os.Stdout, out2: None},
+	AUX4:        {out1: os.Stdout, out2: None},
 	ERROR:       {out1: os.Stdout, out2: None},
 	WARN:        {out1: os.Stdout, out2: None},
 	NOTICE:      {out1: os.Stdout, out2: None},
-	DEBUG:       {out1: os.Stdout, out2: None},
-	TRACE:       {out1: os.Stdout, out2: None},
+	DEBUG:       {out1: None, out2: None},
+	TRACE:       {out1: None, out2: None},
 	FATAL:       {out1: os.Stdout, out2: None},
+	_flash_txt:  {out1: os.Stderr, out2: None},
 	_print_txt:  {out1: os.Stdout, out2: None},
 	_stderr_txt: {out1: os.Stderr, out2: None},
+}
+
+func init() {
+	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
+		piped_stdout = true
+	}
+	if !terminal.IsTerminal(int(os.Stderr.Fd())) {
+		piped_stderr = true
+	}
 }
 
 type _logger struct {
@@ -104,18 +124,41 @@ func ShowTS() {
 	use_ts = true
 }
 
-// Specify which loggers to enable, STD is enabled by default.
-func SetLoggers(flag int) {
+// Enable a specific logger.
+func SetOutput(flag int, w io.Writer) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	enabled_logging = flag
+	for n, v := range l_map {
+		if flag&n == flag {
+			v.out1 = w
+		}
+	}
+
+}
+
+// Disable a specific logger
+func DisableOutput(flag int) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for n, v := range l_map {
+		if flag&n == flag {
+			v.out1 = None
+		}
+	}
 }
 
 // Specify which logs to send to syslog.
-func SetExports(flag int) {
+func EnableExport(flag int) {
 	mutex.Lock()
 	defer mutex.Unlock()
-	enabled_exports = flag
+	enabled_exports = enabled_exports | flag
+}
+
+// Specific which logger to not export.
+func DisableExport(flag int) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	enabled_exports = enabled_exports & ^flag
 }
 
 // Switches timestamps to local timezone. (Default Setting)
@@ -161,17 +204,6 @@ func genTS(in *[]byte) {
 	*ts = append(*ts, ' ')
 }
 
-// Change output for logger(s).
-func SetOutput(logger int, w io.Writer) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	for n, v := range l_map {
-		if logger&n == n {
-			v.out1 = w
-		}
-	}
-}
-
 // Change prefix for specified logger.
 func SetPrefix(logger int, prefix_str string) {
 	mutex.Lock()
@@ -185,47 +217,22 @@ func SetPrefix(logger int, prefix_str string) {
 
 // Don't log, write text to standard error which will be overwritten on the next output.
 func Flash(vars ...interface{}) {
-	write2log(_flash_txt, vars...)
-}
-
-// Don't log, just print text to stnadard out, bypassing flushing.
-func NoFlush(vars ...interface{}) {
-	noFlushMutex.Lock()
-	defer noFlushMutex.Unlock()
-
-	// Reset buffer.
-	noFlushBuffer.Reset()
-
-	outputFactory(&noFlushBuffer, vars...)
-	output := noFlushBuffer.Bytes()
-	
-	bufferLen := utf8.RuneCount(output)
-
-	if bufferLen > 1 && output[bufferLen-1] != '\n' {
-		output = append(output, '\n')
-	}
-
-	io.Copy(os.Stdout, bytes.NewReader(output))
+	write2log(_flash_txt|_no_logging, vars...)
 }
 
 // Don't log, just print text to standard out.
 func Stdout(vars ...interface{}) {
-	write2log(_print_txt|_flash_txt, vars...)
+	write2log(_print_txt|_no_logging, vars...)
 }
 
 // Don't log, just print text to standard error.
 func Stderr(vars ...interface{}) {
-	write2log(_stderr_txt|_flash_txt, vars...)
+	write2log(_stderr_txt|_no_logging, vars...)
 }
 
 // Log as Info.
 func Log(vars ...interface{}) {
 	write2log(INFO, vars...)
-}
-
-// Log as Info, as auxilary output.
-func Aux(vars ...interface{}) {
-	write2log(AUX, vars...)
 }
 
 // Log as Error.
@@ -241,6 +248,26 @@ func Warn(vars ...interface{}) {
 // Log as Notice.
 func Notice(vars ...interface{}) {
 	write2log(NOTICE, vars...)
+}
+
+// Log as Info, as auxilary output.
+func Aux(vars ...interface{}) {
+	write2log(AUX, vars...)
+}
+
+// Log as Info, as auxilary output.
+func Aux2(vars ...interface{}) {
+	write2log(AUX2, vars...)
+}
+
+// Log as Info, as auxilary output.
+func Aux3(vars ...interface{}) {
+	write2log(AUX3, vars...)
+}
+
+// Log as Info, as auxilary output.
+func Aux4(vars ...interface{}) {
+	write2log(AUX4, vars...)
 }
 
 // Log as Fatal, then quit.
@@ -303,26 +330,24 @@ func write2log(flag int, vars ...interface{}) {
 			return
 		}
 	}
-	
-	if enabled_logging&flag != flag && flag&_flash_txt != _flash_txt {
-		return
-	}
+
+	flag = flag &^ _bypass_lock
 
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	logger := l_map[flag]
+	logger := l_map[flag&^_no_logging]
 
 	var pre []byte
 
-	if flag&_flash_txt != _flash_txt {
+	if flag&_no_logging != _no_logging {
 		if use_ts {
 			genTS(&pre)
 		}
 		pre = append(pre, []byte(prefix[flag])[0:]...)
 	}
 
-	// Reset buffer. 
+	// Reset buffer.
 	msgBuffer.Reset()
 
 	outputFactory(&msgBuffer, vars...)
@@ -332,49 +357,46 @@ func write2log(flag int, vars ...interface{}) {
 	output = append(pre, output[0:]...)
 	bufferLen := utf8.RuneCount(output)
 
-	if bufferLen > 0 && output[len(output)-1] != '\n' && flag != _flash_txt {
+	if bufferLen > 0 && output[len(output)-1] != '\n' && flag&_flash_txt != _flash_txt {
 		output = append(output, '\n')
 		bufferLen++
 	}
 
 	// Clear out last flash text.
-	if flush_needed && (flag&_flash_txt == _flash_txt || logger.out1 != None) {
+	if flush_needed && !piped_stderr && ((logger.out1 == os.Stdout && !piped_stdout) || logger.out1 == os.Stderr) {
 		if bufferLen == 0 {
 			fmt.Fprintf(os.Stderr, "\r%s  \r", string(flush_line[0:flush_len]))
-		} else { 
+		} else {
 			fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:flush_len]))
 		}
 		flush_needed = false
 	}
 
 	// Flash text handler, make a line of text available to remove remnents of this text.
-	if flag == _flash_txt {
-		for i := len(flush_line); i < bufferLen; i++ {
-			flush_line = append(flush_line[0:], ' ')
+	if flag&_flash_txt == _flash_txt {
+		if !piped_stderr {
+			for i := len(flush_line); i < bufferLen; i++ {
+				flush_line = append(flush_line[0:], ' ')
+			}
+			flush_len = bufferLen
+			io.Copy(os.Stderr, bytes.NewReader(output))
+			flush_needed = true
+			return
 		}
-		flush_len = bufferLen
-		io.Copy(os.Stderr, bytes.NewReader(output))
-		flush_needed = true
 		return
 	}
 
-	if flag&_flash_txt == _flash_txt {
-		if flag&_print_txt == _print_txt {
-			flag = _print_txt
-		} else {
-			flag = _stderr_txt
-		}
-		io.Copy(l_map[flag].out1, bytes.NewReader(output))
+	if flag&_no_logging == _no_logging {
+		io.Copy(logger.out1, bytes.NewReader(output))
 		return
 	}
 
 	var err error
 
-	if logger.out1 != nil {
-		_, err := io.Copy(logger.out1, bytes.NewReader(output))
-		if err != nil && FatalOnOutError {
-			go Fatal(err)
-		}
+	_, err = io.Copy(logger.out1, bytes.NewReader(output))
+	if err != nil && FatalOnOutError {
+		go Fatal(err)
+		return
 	}
 
 	// Preprend timestamp for file.
@@ -388,6 +410,7 @@ func write2log(flag int, vars ...interface{}) {
 
 	// Write to file.
 	_, err = io.Copy(logger.out2, bytes.NewReader(output))
+	// Launch fatal in a go routine, as the mutex is currently locked.
 	if err != nil && FatalOnFileError {
 		go Fatal(err)
 	}
@@ -395,7 +418,14 @@ func write2log(flag int, vars ...interface{}) {
 	if export_syslog != nil && enabled_exports&flag == flag {
 		switch flag {
 		case INFO:
+			fallthrough
 		case AUX:
+			fallthrough
+		case AUX2:
+			fallthrough
+		case AUX3:
+			fallthrough
+		case AUX4:
 			err = export_syslog.Info(msg)
 		case ERROR:
 			err = export_syslog.Err(msg)
