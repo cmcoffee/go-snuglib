@@ -81,6 +81,26 @@ func (s *Store) MGet(section, key string) []string {
 	}
 }
 
+// Goes through list of sections and keys to make sure they are set.
+func (s *Store) Sanitize(section string, keys []string) (err error) {
+	if s.cfgStore == nil {
+		return fmt.Errorf("[%s] section does not exist, or is not configured.", section)
+	}
+	if _, ok := s.cfgStore[section]; !ok {
+		return fmt.Errorf("[%s] section does not exist, or is not configured.", section)
+	}
+	var missing_keys []string
+	for _, key := range keys {
+		if found := s.Exists(section, key); !found {
+			missing_keys = append(missing_keys, fmt.Sprintf("'%s'", key))
+		}
+	}
+	if len(missing_keys) > 0 {
+		return fmt.Errorf("[%s] section lacks required keys: %s.", section, strings.Join(missing_keys, ", "))
+	}
+	return
+}
+
 // Return only the first entry, if there are multiple entries the rest are skipped.
 func (s *Store) Get(section, key string) string {
 	s.mutex.RLock()

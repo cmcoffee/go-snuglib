@@ -100,6 +100,27 @@ func (s *Store) MGet(section, key string) []string
 ```
 Returns array of all retrieved string values under section with key.
 
+#### func (*Store) Parse
+
+```go
+func (s *Store) Parse(input string) (err error)
+```
+Will parse a string, but overwrite existing config.
+
+#### func (*Store) SGet
+
+```go
+func (s *Store) SGet(section, key string) string
+```
+Returns entire line as one string, (Single Get)
+
+#### func (*Store) Sanitize
+
+```go
+func (s *Store) Sanitize(section string, keys []string) (err error)
+```
+Goes through list of sections and keys to make sure they are set.
+
 #### func (*Store) Save
 
 ```go
@@ -121,6 +142,13 @@ Returns array of all sections in config file.
 func (s *Store) Set(section, key string, value ...interface{}) (err error)
 ```
 Sets key = values under [section], updates Store and saves to file.
+
+#### func (*Store) TrimSave
+
+```go
+func (s *Store) TrimSave(sections ...string) error
+```
+TrimSave is similar to Save, however it will trim unusued keys.
 
 #### func (*Store) Unset
 
