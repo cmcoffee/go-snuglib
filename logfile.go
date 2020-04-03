@@ -60,6 +60,17 @@ func (f *logFile) Write(p []byte) (n int, err error) {
 	}
 }
 
+// Tacks an additional logger to an exising log file.
+func LogFileAppend(existing_logger int, logger int) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	if l, ok := l_map[existing_logger]; ok {
+		if _, ok := l_map[logger]; ok {
+			l_map[logger].out2 = l.out2
+		}
+	}
+}
+
 // Opens a new log file for writing, max_size is threshold for rotation, max_rotation is number of previous logs to hold on to.
 // Set max_size_mb to 0 to disable file rotation.
 func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error) {

@@ -84,7 +84,7 @@ func init() {
 		for {
 			s := <-signalChan
 
-			write2log(_flash_txt | _bypass_lock)
+			write2log(_no_logging | _flash_txt | _bypass_lock)
 
 			mutex.Lock()
 			cb := callbacks[s]

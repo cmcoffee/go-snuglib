@@ -204,6 +204,13 @@ func Log(vars ...interface{})
 ```
 Log as Info.
 
+#### func  LogFileAppend
+
+```go
+func LogFileAppend(existing_logger int, logger int)
+```
+Tacks an additional logger to an exising log file.
+
 #### func  NeedAnswer
 
 ```go
