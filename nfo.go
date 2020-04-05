@@ -13,6 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
+	"github.com/cmcoffee/go-wrotate"
+	"path/filepath"
+	"strings"
 )
 
 import . "itoa"
@@ -37,7 +40,10 @@ const (
 )
 
 // Standard Loggers, minus debug and trace.
-const STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
+const (
+	STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
+	ALL = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4 | DEBUG | TRACE
+)
 
 var prefix = map[int]string{
 	INFO:   "",
@@ -71,20 +77,20 @@ var (
 )
 
 var l_map = map[int]*_logger{
-	INFO:        {out1: os.Stdout, out2: None},
-	AUX:         {out1: os.Stdout, out2: None},
-	AUX2:        {out1: os.Stdout, out2: None},
-	AUX3:        {out1: os.Stdout, out2: None},
-	AUX4:        {out1: os.Stdout, out2: None},
-	ERROR:       {out1: os.Stdout, out2: None},
-	WARN:        {out1: os.Stdout, out2: None},
-	NOTICE:      {out1: os.Stdout, out2: None},
-	DEBUG:       {out1: None, out2: None},
-	TRACE:       {out1: None, out2: None},
-	FATAL:       {out1: os.Stdout, out2: None},
-	_flash_txt:  {out1: os.Stderr, out2: None},
-	_print_txt:  {out1: os.Stdout, out2: None},
-	_stderr_txt: {out1: os.Stderr, out2: None},
+	INFO:        {os.Stdout, None, true},
+	AUX:         {os.Stdout, None, true},
+	AUX2:        {os.Stdout, None, true},
+	AUX3:        {os.Stdout, None, true},
+	AUX4:        {os.Stdout, None, true},
+	ERROR:       {os.Stdout, None, true},
+	WARN:        {os.Stdout, None, true},
+	NOTICE:      {os.Stdout, None, true},
+	DEBUG:       {None, None, true},
+	TRACE:       {None, None, true},
+	FATAL:       {os.Stdout, None, true},
+	_flash_txt:  {os.Stderr, None, false},
+	_print_txt:  {os.Stdout, None, false},
+	_stderr_txt: {os.Stderr, None, false},
 }
 
 func init() {
@@ -98,7 +104,79 @@ func init() {
 
 type _logger struct {
 	out1 io.Writer
-	out2 io.Writer
+	out2 io.WriteCloser
+	use_ts bool
+}
+
+// Keep map of open files
+var open_files = make(map[string]io.WriteCloser)
+var open_files_mutex sync.Mutex
+
+
+// Creates folders.
+func mkDir(name...string) (err error) {
+	for _, path := range name {
+		subs := strings.Split(path, string(os.PathSeparator))
+		for i := 0; i < len(subs); i++ {
+			p := strings.Join(subs[0:i], string(os.PathSeparator))
+			if p == "" {
+				p = "."
+			}
+			_, err = os.Stat(p)
+			if err != nil {
+				if os.IsNotExist(err) {
+					err = os.Mkdir(p, 0766)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Opens a new log file for writing, max_size is threshold for rotation, max_rotation is number of previous logs to hold on to.
+// Set max_size_mb to 0 to disable file rotation.
+func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error) {
+	max_size := int64(max_size_mb * 1048576)
+	fpath, _ := filepath.Split(filename)
+
+	if err := mkDir(fpath); err != nil {
+		return err
+	}
+
+
+	file, err := wrotate.OpenFile(filename, max_size, max_rotation)
+	if err != nil {
+		return err
+	}
+
+	open_files_mutex.Lock()
+	defer open_files_mutex.Unlock()
+
+	open_files[filename] = file
+	SetFile(l_file_flag, file)
+
+	return nil
+}
+
+// Closes out a log file.
+func Close(filename string) (err error) {
+	open_files_mutex.Lock()
+	defer open_files_mutex.Unlock()
+	mutex.Lock()
+	defer mutex.Unlock()
+	f := open_files[filename]
+	for _, v := range l_map {
+		if v.out2 == f {
+			v.out2 = None
+		}
+	}
+	delete(open_files, filename)
+	return f.Close()
 }
 
 // False writer for discarding output.
@@ -110,41 +188,87 @@ func (dummyWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Hide timestamps.
-func HideTS() {
+func (dummyWriter) Close() (error) {
+	return nil
+}
+
+// Tacks an additional logger to an exising log file.
+func LogFileAppend(existing_logger int, flag int) {
+	logger := getLogger(existing_logger)
+	updateLogger(flag, 2, logger.out2)
+}
+
+// Retrieve first matching logger.
+func getLogger(flag int) *_logger {
 	mutex.Lock()
 	defer mutex.Unlock()
-	use_ts = false
+	for k, v := range l_map {
+		if flag&k == k {
+			return v
+		}
+	}
+	return nil
+}
+
+// Updates logger.
+func updateLogger(flag int, field int, input interface{}) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for k, v := range l_map {
+		if flag&k == k {
+			switch field {
+				case 1:
+					if x, ok := input.(io.Writer); ok {	
+						v.out1 = x
+					} else {
+						return
+					}
+				case 2:
+					if x, ok := input.(io.WriteCloser); ok {	
+						v.out2 = x
+					} else {
+						return
+					}
+				case 3:
+					if x, ok := input.(bool); ok {
+						v.use_ts = x
+					} else {
+						return
+					}
+			default:
+				return
+			}
+		}
+	}
+}
+
+// Hide timestamps in output.
+func HideTS() {
+	updateLogger(ALL, 3, false)
 }
 
 // Show timestamps. (Default Enabled)
 func ShowTS() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	use_ts = true
+	updateLogger(ALL, 3, true)
+}
+
+// Enable/Disable Timestamp on output.
+func SetTimestamp(flag int, use_ts bool) {
+	updateLogger(flag, 3, use_ts)
 }
 
 // Enable a specific logger.
 func SetOutput(flag int, w io.Writer) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	for n, v := range l_map {
-		if flag&n == flag {
-			v.out1 = w
-		}
-	}
+	updateLogger(flag, 1, w)
+}
 
+func SetFile(flag int, input io.Writer) {
+	updateLogger(flag, 2, input)
 }
 
 // Disable a specific logger
 func DisableOutput(flag int) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	for n, v := range l_map {
-		if flag&n == flag {
-			v.out1 = None
-		}
-	}
+	updateLogger(flag, 1, None)
 }
 
 // Specify which logs to send to syslog.
@@ -341,7 +465,7 @@ func write2log(flag int, vars ...interface{}) {
 	var pre []byte
 
 	if flag&_no_logging != _no_logging {
-		if use_ts {
+		if logger.use_ts {
 			genTS(&pre)
 		}
 		pre = append(pre, []byte(prefix[flag])[0:]...)
@@ -400,7 +524,7 @@ func write2log(flag int, vars ...interface{}) {
 	}
 
 	// Preprend timestamp for file.
-	if !use_ts {
+	if !logger.use_ts {
 		out_len := len(output)
 		genTS(&output)
 		out := output[out_len:]
