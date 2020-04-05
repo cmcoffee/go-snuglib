@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var ErrReadTimeout = errors.New("IO timeout exceeded waiting for bytes.")
+var ErrReadTimeout = errors.New("Timeout exceeded waiting for bytes.")
 
 const (
 	working = 1 << iota
@@ -33,7 +33,7 @@ func start_timer(timeout time.Duration, flag *int32, expired chan struct{}) {
 			atomic.StoreInt32(flag, waiting)
 		case waiting:
 			cnt++
-			if cnt >= timeout_seconds {
+			if timeout_seconds > 0 && cnt >= timeout_seconds {
 				expired <- struct{}{}
 				break
 			}
@@ -72,9 +72,14 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 	go start_timer(timeout, &t.flag, t.expired)
 
 	go func() {
-		var data resp
+		var (
+			data resp
+			p    []byte
+		)
 		for {
-			data.n, data.err = reader.Read(<-t.input)
+			p = <-t.input
+			atomic.StoreInt32(&t.flag, working)
+			data.n, data.err = reader.Read(p)
 			t.output <- data
 			if data.err != nil {
 				break
@@ -86,6 +91,7 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 
 // Time Sensitive Read function.
 func (t *Reader) Read(p []byte) (n int, err error) {
+	//atomic.StoreInt32(&t.flag, working)
 	t.input <- p
 
 	select {
@@ -95,9 +101,7 @@ func (t *Reader) Read(p []byte) (n int, err error) {
 	case <-t.expired:
 		return -1, ErrReadTimeout
 	}
-	if err == nil {
-		atomic.StoreInt32(&t.flag, working)
-	} else {
+	if err != nil {
 		atomic.StoreInt32(&t.flag, halt)
 	}
 	return
