@@ -36,6 +36,44 @@ func (s _voidText) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+// Array value, allows multiple --string=.
+type arrayValue struct {
+	example string
+	value *[]string
+}
+
+func (A *arrayValue) String() string {
+	if len(*A.value) > 0 {
+		return fmt.Sprintf("\"%s\"", strings.Join(*A.value, ","))
+	} else {
+		return fmt.Sprintf("\"%s\"", A.example)
+	}
+}
+
+func (A *arrayValue) Set(value string) error {
+	A.example = ""
+	*A.value = append(*A.value, value)
+	return nil
+}
+
+func (A *arrayValue) Get() interface{} { return []string(*A.value) }
+
+// Array variable, ie.. multiple --string=values
+func (E *EFlagSet) Array(name string, example string, usage string) (*[]string) {
+	output := new([]string)
+	E.ArrayVar(output, name, example, usage)
+	return output
+}
+
+// Array variable, ie.. multiple --string=values
+func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage string) {
+	v := arrayValue{
+		example: example,
+		value: p,
+	}
+	E.Var(&v, name, usage)
+}
+
 type EFlagSet struct {
 	name       string
 	Header     string
@@ -61,6 +99,7 @@ var cmd = EFlagSet {
 }
 
 var (
+	ArrayVar = cmd.ArrayVar
 	SetOutput = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
 	Alias = cmd.Alias
