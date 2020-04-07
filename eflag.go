@@ -44,7 +44,7 @@ type arrayValue struct {
 
 func (A *arrayValue) String() string {
 	if len(*A.value) > 0 {
-		return fmt.Sprintf("\"%s\"", strings.Join(*A.value, ","))
+		return strings.Join(*A.value, ",")
 	} else {
 		return fmt.Sprintf("\"%s\"", A.example)
 	}
@@ -67,6 +67,9 @@ func (E *EFlagSet) Array(name string, example string, usage string) (*[]string) 
 
 // Array variable, ie.. multiple --string=values
 func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage string) {
+	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
+			example = example[1:len(example)-1]
+	} 
 	v := arrayValue{
 		example: example,
 		value: p,
