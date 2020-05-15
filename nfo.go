@@ -481,7 +481,12 @@ func write2log(flag int, vars ...interface{}) {
 	output = append(pre, output[0:]...)
 	bufferLen := utf8.RuneCount(output)
 
-	if bufferLen > 0 && output[len(output)-1] != '\n' && flag&_flash_txt != _flash_txt {
+	if bufferLen > 0 {
+		if output[len(output)-1] != '\n' && flag&_flash_txt != _flash_txt {
+			output = append(output, '\n')
+			bufferLen++
+		}
+	} else if flag&_flash_txt != _flash_txt {
 		output = append(output, '\n')
 		bufferLen++
 	}

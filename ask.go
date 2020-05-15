@@ -84,13 +84,11 @@ func Confirm(prompt string) bool {
 	for {
 		resp := Input(fmt.Sprintf("%s (y/n): ", prompt))
 		resp = strings.ToLower(resp)
-		fmt.Println("")
 		if resp == "y" || resp == "yes" {
 			return true
 		} else if resp == "n" || resp == "no" {
 			return false
 		}
-		fmt.Printf("Err: Unrecognized response: %s\n", resp)
 		continue
 	}
 }
