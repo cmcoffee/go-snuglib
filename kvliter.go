@@ -1,8 +1,8 @@
 package kvliter
 
 import (
-	"github.com/boltdb/bolt"
 	"encoding/gob"
+	"github.com/boltdb/bolt"
 	//"sync"
 	"bytes"
 	"crypto/aes"
@@ -12,7 +12,7 @@ import (
 
 type Store interface {
 	// Tables provides a list of all tables.
-	Tables() (tables []string, err error) 
+	Tables() (tables []string, err error)
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -33,10 +33,9 @@ type Store interface {
 
 // Bolt Backend
 type boltDB struct {
-	db *bolt.DB
+	db      *bolt.DB
 	encoder encoder
 }
-
 
 type encoder []byte
 
@@ -105,7 +104,7 @@ func (e *encoder) encode(input interface{}) (output []byte, err error) {
 
 // Counts keys in table.
 func (K *boltDB) CountKeys(table string) (count int, err error) {
-	err = K.db.View(func (tx *bolt.Tx) error {
+	err = K.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(table))
 		if bucket == nil {
 			return nil
@@ -113,20 +112,20 @@ func (K *boltDB) CountKeys(table string) (count int, err error) {
 		count = bucket.Stats().KeyN
 		return nil
 	})
-	return 
+	return
 }
 
 // Lists keys in table.
 func (K *boltDB) Keys(table string) (keys []string, err error) {
 	err = K.db.View(func(tx *bolt.Tx) error {
-	bucket := tx.Bucket([]byte(table))
-	if bucket == nil {
-		return nil
-	}
-	add_key := func(k, v []byte) error {
-		keys = append(keys, string(k))
-		return nil
-	}
+		bucket := tx.Bucket([]byte(table))
+		if bucket == nil {
+			return nil
+		}
+		add_key := func(k, v []byte) error {
+			keys = append(keys, string(k))
+			return nil
+		}
 		return bucket.ForEach(add_key)
 	})
 	if keys == nil {
@@ -151,14 +150,14 @@ func (K *boltDB) Unset(table, key string) (err error) {
 
 // Drops table
 func (K *boltDB) Drop(table string) (err error) {
-	return K.db.Update(func (tx *bolt.Tx) error {
+	return K.db.Update(func(tx *bolt.Tx) error {
 		return tx.DeleteBucket([]byte(table))
 	})
 }
 
 // Lists all tables
 func (K *boltDB) Tables() (tables []string, err error) {
-	err = K.db.View(func (tx *bolt.Tx) error {
+	err = K.db.View(func(tx *bolt.Tx) error {
 		add_bucket := func(name []byte, b *bolt.Bucket) error {
 			if string(name) == "KVLite" {
 				return nil
@@ -166,14 +165,14 @@ func (K *boltDB) Tables() (tables []string, err error) {
 			tables = append(tables, string(name))
 			return nil
 		}
-	    return tx.ForEach(add_bucket)
+		return tx.ForEach(add_bucket)
 	})
 	return tables, err
 }
 
 // Retrieve value from bolt db.
 func (K *boltDB) Get(table, key string, output interface{}) (found bool, err error) {
-	return found, K.db.View(func (tx *bolt.Tx) error {
+	return found, K.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(table))
 		if bucket == nil {
 			found = false
@@ -181,7 +180,7 @@ func (K *boltDB) Get(table, key string, output interface{}) (found bool, err err
 		}
 		found = true
 		return K.encoder.decode(bucket.Get([]byte(key)), output)
-	}) 
+	})
 }
 
 func (K *boltDB) Close() (err error) {
@@ -200,7 +199,7 @@ func (K *boltDB) Set(table, key string, value interface{}) (err error) {
 
 // Stores key/value pair in bolt.
 func (K *boltDB) set(table, key string, value interface{}, encrypt_value bool) (err error) {
-	return K.db.Update(func (tx *bolt.Tx) error {
+	return K.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(table))
 		if err != nil {
 			return err
@@ -209,7 +208,7 @@ func (K *boltDB) set(table, key string, value interface{}, encrypt_value bool) (
 		v, err := K.encoder.encode(value)
 		if err != nil {
 			return err
-		}	
+		}
 
 		if encrypt_value {
 			v = K.encoder.encrypt(v)
@@ -230,7 +229,9 @@ func CryptReset(filename string) (err error) {
 	}
 
 	tables, err := db.Tables()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	for _, t := range tables {
 		var crypted_keys []string
@@ -239,7 +240,7 @@ func CryptReset(filename string) (err error) {
 			return err
 		}
 		for _, k := range keys {
-			err = db.db.View(func (tx *bolt.Tx) error {
+			err = db.db.View(func(tx *bolt.Tx) error {
 				bucket := tx.Bucket([]byte(t))
 				if bucket == nil {
 					return nil
@@ -256,13 +257,15 @@ func CryptReset(filename string) (err error) {
 		}
 		for _, k := range crypted_keys {
 			err = db.Unset(t, k)
-			if err != nil { 
+			if err != nil {
 				return err
 			}
 		}
-	} 
+	}
 	err = db.Drop("KVLite")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	return db.Close()
 }
 
@@ -276,7 +279,7 @@ func open(filename string) (DB *boltDB, err error) {
 }
 
 // Opens BoltDB backed kvlite.Store.
-func Open(filename string, padlock...byte) (Store, error) {
+func Open(filename string, padlock ...byte) (Store, error) {
 	db, err := open(filename)
 	if err != nil {
 		return nil, err

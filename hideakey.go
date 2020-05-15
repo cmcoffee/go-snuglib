@@ -2,12 +2,12 @@ package kvliter
 
 import (
 	"bytes"
-	"errors"
-	"crypto/rand"
-	"math/big"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
+	"errors"
+	"math/big"
 )
 
 const (
@@ -80,7 +80,7 @@ func (X *xLock) decrypt(input []byte, key []byte) (decoded []byte) {
 }
 
 // Sets and randomizes keys in Store table for Store encryption key.
-func (X *xLock) dblocker(key, padlock []byte) ([]byte) {
+func (X *xLock) dblocker(key, padlock []byte) []byte {
 	passphrase := hashBytes(randBytes(256))
 	if key == nil {
 		key = hashBytes(randBytes(256))

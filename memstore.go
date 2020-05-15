@@ -6,8 +6,8 @@ import (
 
 // Memory-Map keystore
 type memStore struct {
-	mutex sync.RWMutex
-	kv map[string]map[string][]byte
+	mutex   sync.RWMutex
+	kv      map[string]map[string][]byte
 	encoder encoder
 }
 
@@ -96,7 +96,7 @@ func (K *memStore) set(table, key string, value interface{}, encrypt_value bool)
 	v, err := K.encoder.encode(value)
 	if err != nil {
 		return err
-	}	
+	}
 
 	if encrypt_value {
 		v = K.encoder.encrypt(v)
@@ -122,6 +122,6 @@ func (K *memStore) Close() (err error) {
 }
 
 // Creates a new ephemeral memory based kvliter.Store.
-func MemStore() (Store) {
+func MemStore() Store {
 	return &memStore{kv: make(map[string]map[string][]byte), encoder: hashBytes(randBytes(256))}
 }
