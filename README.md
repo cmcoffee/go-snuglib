@@ -24,7 +24,10 @@ const (
 ```
 
 ```go
-const STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
+const (
+	STD = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4
+	ALL = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4 | DEBUG | TRACE
+)
 ```
 Standard Loggers, minus debug and trace.
 
@@ -41,6 +44,11 @@ var (
 var None dummyWriter
 ```
 False writer for discarding output.
+
+```go
+var PleaseWait _loader
+```
+PleaseWait is a wait prompt to display between requests.
 
 #### func  Aux
 
@@ -83,8 +91,7 @@ shutdown
 ```go
 func Close(filename string) (err error)
 ```
-Closes logging file, removes file from all loggers, removes file from open
-files.
+Closes out a log file.
 
 #### func  Confirm
 
@@ -103,7 +110,7 @@ Log as Debug.
 #### func  Defer
 
 ```go
-func Defer(closer interface{})
+func Defer(closer interface{}) func() error
 ```
 Adds a function to the global defer, function must take no arguments and either
 return nothing or return an error.
@@ -174,7 +181,7 @@ output.
 ```go
 func HideTS()
 ```
-Hide timestamps.
+Hide timestamps in output.
 
 #### func  HookSyslog
 
@@ -197,6 +204,12 @@ func LTZ()
 ```
 Switches timestamps to local timezone. (Default Setting)
 
+#### func  LocalDefer
+
+```go
+func LocalDefer(closer func() error)
+```
+
 #### func  Log
 
 ```go
@@ -207,7 +220,7 @@ Log as Info.
 #### func  LogFileAppend
 
 ```go
-func LogFileAppend(existing_logger int, logger int)
+func LogFileAppend(existing_logger int, flag int)
 ```
 Tacks an additional logger to an exising log file.
 
@@ -239,6 +252,12 @@ func Secret(prompt string) string
 ```
 Get Hidden/Password input, without returning information to the screen.
 
+#### func  SetFile
+
+```go
+func SetFile(flag int, input io.Writer)
+```
+
 #### func  SetOutput
 
 ```go
@@ -259,6 +278,13 @@ Change prefix for specified logger.
 func SetSignals(sig ...os.Signal)
 ```
 Sets the signals that we listen for.
+
+#### func  SetTimestamp
+
+```go
+func SetTimestamp(flag int, use_ts bool)
+```
+Enable/Disable Timestamp on output.
 
 #### func  ShowTS
 
