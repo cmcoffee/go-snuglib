@@ -1,9 +1,8 @@
-
 package nfo
 
 import (
-	"time"
 	"sync/atomic"
+	"time"
 )
 
 var start_time time.Time

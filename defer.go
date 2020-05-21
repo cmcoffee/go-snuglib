@@ -3,6 +3,7 @@ package nfo
 import (
 	"os"
 	"os/signal"
+	"reflect"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ var (
 	// Signal Notification Channel. (ie..nfo.Signal<-os.Kill will initiate a shutdown.)
 	signalChan  = make(chan os.Signal)
 	globalDefer []func() error
+	defLock     sync.Mutex
 	errCode     = 0
 	wait        sync.WaitGroup
 	exit_lock   = make(chan struct{})
@@ -28,8 +30,26 @@ func UnblockShutdown() {
 	wait.Done()
 }
 
+func LocalDefer(closer func() error) {
+	defLock.Lock()
+	defer defLock.Unlock()
+
+	my_func := reflect.ValueOf(closer)
+	tmp := globalDefer[:0]
+	for _, v := range globalDefer {
+		if reflect.ValueOf(v) != my_func {
+			tmp = append(tmp, v)
+		}
+	}
+	globalDefer = tmp
+	closer()
+}
+
 // Adds a function to the global defer, function must take no arguments and either return nothing or return an error.
-func Defer(closer interface{}) {
+func Defer(closer interface{}) func() error {
+	defLock.Lock()
+	defer defLock.Unlock()
+
 	errorWrapper := func(closerFunc func()) func() error {
 		return func() error {
 			closerFunc()
@@ -39,10 +59,14 @@ func Defer(closer interface{}) {
 
 	switch closer := closer.(type) {
 	case func():
-		globalDefer = append([]func() error{errorWrapper(closer)}, globalDefer[0:]...)
+		e := errorWrapper(closer)
+		globalDefer = append([]func() error{e}, globalDefer[0:]...)
+		return e
 	case func() error:
 		globalDefer = append([]func() error{closer}, globalDefer[0:]...)
+		return closer
 	}
+	return nil
 }
 
 // Intended to be a defer statement at the begining of main, but can be called at anytime with an exit code.
@@ -109,6 +133,10 @@ func init() {
 
 			break
 		}
+
+		defLock.Lock()
+		defer defLock.Unlock()
+
 		// Run through all globalDefer functions.
 		for _, x := range globalDefer {
 			if err = x(); err != nil {

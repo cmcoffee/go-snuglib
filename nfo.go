@@ -6,16 +6,16 @@ package nfo
 import (
 	"bytes"
 	"fmt"
+	"github.com/cmcoffee/go-wrotate"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
-	"github.com/cmcoffee/go-wrotate"
-	"path/filepath"
-	"strings"
 )
 
 import . "itoa"
@@ -103,8 +103,8 @@ func init() {
 }
 
 type _logger struct {
-	out1 io.Writer
-	out2 io.WriteCloser
+	out1   io.Writer
+	out2   io.WriteCloser
 	use_ts bool
 }
 
@@ -112,9 +112,8 @@ type _logger struct {
 var open_files = make(map[string]io.WriteCloser)
 var open_files_mutex sync.Mutex
 
-
 // Creates folders.
-func mkDir(name...string) (err error) {
+func mkDir(name ...string) (err error) {
 	for _, path := range name {
 		subs := strings.Split(path, string(os.PathSeparator))
 		for i := 0; i < len(subs); i++ {
@@ -147,7 +146,6 @@ func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint)
 	if err := mkDir(fpath); err != nil {
 		return err
 	}
-
 
 	file, err := wrotate.OpenFile(filename, max_size, max_rotation)
 	if err != nil {
@@ -188,7 +186,7 @@ func (dummyWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (dummyWriter) Close() (error) {
+func (dummyWriter) Close() error {
 	return nil
 }
 
@@ -217,24 +215,24 @@ func updateLogger(flag int, field int, input interface{}) {
 	for k, v := range l_map {
 		if flag&k == k {
 			switch field {
-				case 1:
-					if x, ok := input.(io.Writer); ok {	
-						v.out1 = x
-					} else {
-						return
-					}
-				case 2:
-					if x, ok := input.(io.WriteCloser); ok {	
-						v.out2 = x
-					} else {
-						return
-					}
-				case 3:
-					if x, ok := input.(bool); ok {
-						v.use_ts = x
-					} else {
-						return
-					}
+			case 1:
+				if x, ok := input.(io.Writer); ok {
+					v.out1 = x
+				} else {
+					return
+				}
+			case 2:
+				if x, ok := input.(io.WriteCloser); ok {
+					v.out2 = x
+				} else {
+					return
+				}
+			case 3:
+				if x, ok := input.(bool); ok {
+					v.use_ts = x
+				} else {
+					return
+				}
 			default:
 				return
 			}
