@@ -150,9 +150,13 @@ func (K *boltDB) Unset(table, key string) (err error) {
 
 // Drops table
 func (K *boltDB) Drop(table string) (err error) {
-	return K.db.Update(func(tx *bolt.Tx) error {
+	err = K.db.Update(func(tx *bolt.Tx) error {
 		return tx.DeleteBucket([]byte(table))
 	})
+	if err == bolt.ErrBucketNotFound {
+		return nil
+	}
+	return
 }
 
 // Lists all tables
