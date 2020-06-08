@@ -76,6 +76,19 @@ var (
 	use_utc            = false
 )
 
+// False writer for discarding output.
+var None dummyWriter
+
+type dummyWriter struct{}
+
+func (dummyWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (dummyWriter) Close() error {
+	return nil
+}
+
 var l_map = map[int]*_logger{
 	INFO:        {os.Stdout, None, true},
 	AUX:         {os.Stdout, None, true},
@@ -175,19 +188,6 @@ func Close(filename string) (err error) {
 	}
 	delete(open_files, filename)
 	return f.Close()
-}
-
-// False writer for discarding output.
-var None dummyWriter
-
-type dummyWriter struct{}
-
-func (dummyWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
-func (dummyWriter) Close() error {
-	return nil
 }
 
 // Tacks an additional logger to an exising log file.

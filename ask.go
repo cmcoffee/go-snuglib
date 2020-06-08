@@ -8,13 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 )
 
 var cancel = make(chan struct{})
 
 // Function to restore terminal on event we get an interuption.
 func getEscape() {
-	s, _ := terminal.GetState(0)
+	s, _ := terminal.GetState(int(syscall.Stdin))
 	var signal_chan = make(chan os.Signal)
 	signal.Notify(signal_chan)
 	go func() {
@@ -53,7 +54,7 @@ func PressEnter(prompt string) {
 }
 
 // Gets user input, used during setup and configuration.
-func Input(prompt string) string {
+func GetInput(prompt string) string {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Printf(prompt)
@@ -64,12 +65,12 @@ func Input(prompt string) string {
 }
 
 // Get Hidden/Password input, without returning information to the screen.
-func Secret(prompt string) string {
+func GetSecret(prompt string) string {
 	getEscape()
 	defer func() { cancel <- struct{}{} }()
 
 	fmt.Printf(prompt)
-	resp, _ := terminal.ReadPassword(0)
+	resp, _ := terminal.ReadPassword(int(syscall.Stdin))
 	output := cleanInput(string(resp))
 	if len(output) > 0 {
 		return output
@@ -80,9 +81,9 @@ func Secret(prompt string) string {
 }
 
 // Get confirmation
-func Confirm(prompt string) bool {
+func GetConfirm(prompt string) bool {
 	for {
-		resp := Input(fmt.Sprintf("%s (y/n): ", prompt))
+		resp := GetInput(fmt.Sprintf("%s (y/n): ", prompt))
 		resp = strings.ToLower(resp)
 		if resp == "y" || resp == "yes" {
 			return true

@@ -9,26 +9,9 @@ var start_time time.Time
 
 func init() {
 	start_time = time.Now()
-
-	go func() {
-		loader_1 := []string{"[\\]", "[|]", "[/]", "[-]"}
-		for {
-			for _, str := range loader_1 {
-
-				if x := atomic.LoadInt32((*int32)(&PleaseWait)); x == 1 {
-					Flash("%s Please wait ... ", str)
-				} else if x == 2 {
-					atomic.StoreInt32((*int32)(&PleaseWait), 3)
-					return
-				}
-				time.Sleep(125 * time.Millisecond)
-			}
-		}
-	}()
-	Defer(func() {
-		PleaseWait.Hide()
-		Stdout("\n")
-	})
+	PleaseWait = -1
+	PleaseWait.Set("Please wait ...", false, []string{"[\\]", "[|]", "[/]", "[-]"})
+	Defer(func() { PleaseWait.Hide() })
 }
 
 type _loader int32
@@ -46,7 +29,13 @@ func (L *_loader) Set(message string, include_runtime bool, loader ...[]string) 
 	existing := (int32)(PleaseWait)
 
 	// Disable exisiting PleaseWait
-	atomic.StoreInt32((*int32)(&PleaseWait), 2)
+	if atomic.LoadInt32((*int32)(&PleaseWait)) >= 0 {
+		atomic.StoreInt32((*int32)(&PleaseWait), 2)
+	} else {
+		existing = 0
+		atomic.StoreInt32((*int32)(&PleaseWait), 0)
+	}
+
 	for {
 		if atomic.LoadInt32((*int32)(&PleaseWait)) == 2 {
 			time.Sleep(time.Millisecond * 125)

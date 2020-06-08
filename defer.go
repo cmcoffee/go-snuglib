@@ -30,6 +30,7 @@ func UnblockShutdown() {
 	wait.Done()
 }
 
+// This is a way of removing the global defer and instead locally defering to the function.
 func LocalDefer(closer func() error) {
 	defLock.Lock()
 	defer defLock.Unlock()
@@ -102,7 +103,6 @@ var callbacks = make(map[os.Signal]func() bool)
 
 func init() {
 	SetSignals(syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGHUP)
-
 	go func() {
 		var err error
 		for {
