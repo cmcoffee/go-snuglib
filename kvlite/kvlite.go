@@ -1,4 +1,4 @@
-package kvliter
+package kvlite
 
 import (
 	"encoding/gob"

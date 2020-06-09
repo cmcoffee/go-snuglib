@@ -1,6 +1,6 @@
-# kvliter
+# kvlite
 --
-    import "github.com/cmcoffee/go-kvliter"
+    import "github.com/cmcoffee/go-snuglib/kvlite"
 
 
 ## Usage
