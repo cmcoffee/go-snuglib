@@ -14,7 +14,7 @@ import (
 
 type rotaFile struct {
 	name         string
-	flag         int32
+	flag         uint32
 	file         *os.File
 	buffer       bytes.Buffer
 	r_error      error
@@ -36,11 +36,11 @@ func (f *rotaFile) Write(p []byte) (n int, err error) {
 	f.write_lock.Lock()
 	defer f.write_lock.Unlock()
 
-	switch atomic.LoadInt32(&f.flag) {
+	switch atomic.LoadUint32(&f.flag) {
 	case to_FILE:
 		if f.bytes_left < 0 {
 			// Rotate files in background while writing to memory.
-			atomic.StoreInt32(&f.flag, to_BUFFER)
+			atomic.StoreUint32(&f.flag, to_BUFFER)
 			go f.rotator()
 			return f.buffer.Write(p)
 		}
@@ -92,7 +92,7 @@ func OpenFile(name string, max_bytes int64, max_rotations uint) (io.WriteCloser,
 
 // Closes logging file, removes file from all loggers, removes file from open files.
 func (R *rotaFile) Close() (err error) {
-	atomic.StoreInt32(&R.flag, _CLOSED)
+	atomic.StoreUint32(&R.flag, _CLOSED)
 	return R.file.Close()
 }
 
@@ -107,7 +107,7 @@ func (R *rotaFile) rotator() {
 	chkErr := func(err error) bool {
 		if err != nil {
 			R.r_error = err
-			atomic.StoreInt32(&R.flag, _FAILED)
+			atomic.StoreUint32(&R.flag, _FAILED)
 			return true
 		}
 		return false
@@ -177,6 +177,6 @@ func (R *rotaFile) rotator() {
 	R.buffer.Reset()
 
 	// Switch Write function back to writing to file.
-	atomic.StoreInt32(&R.flag, to_FILE)
+	atomic.StoreUint32(&R.flag, to_FILE)
 	return
 }

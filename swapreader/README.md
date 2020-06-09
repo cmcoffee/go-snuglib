@@ -1,6 +1,6 @@
 # swapreader
 --
-    import "github.com/cmcoffee/go-swapreader"
+    import "github.com/cmcoffee/go-snuglib/swapreader"
 
 
 ## Usage

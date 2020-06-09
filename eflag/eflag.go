@@ -39,7 +39,7 @@ func (s _voidText) Write(p []byte) (n int, err error) {
 // Array value, allows multiple --string=.
 type arrayValue struct {
 	example string
-	value *[]string
+	value   *[]string
 }
 
 func (A *arrayValue) String() string {
@@ -59,7 +59,7 @@ func (A *arrayValue) Set(value string) error {
 func (A *arrayValue) Get() interface{} { return []string(*A.value) }
 
 // Array variable, ie.. multiple --string=values
-func (E *EFlagSet) Array(name string, example string, usage string) (*[]string) {
+func (E *EFlagSet) Array(name string, example string, usage string) *[]string {
 	output := new([]string)
 	E.ArrayVar(output, name, example, usage)
 	return output
@@ -68,71 +68,71 @@ func (E *EFlagSet) Array(name string, example string, usage string) (*[]string) 
 // Array variable, ie.. multiple --string=values
 func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage string) {
 	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
-			example = example[1:len(example)-1]
-	} 
+		example = example[1 : len(example)-1]
+	}
 	v := arrayValue{
 		example: example,
-		value: p,
+		value:   p,
 	}
 	E.Var(&v, name, usage)
 }
 
 type EFlagSet struct {
-	name       string
-	Header     string
-	Footer     string
-	alias      map[string]string
-	stringVars map[string]bool
+	name          string
+	Header        string
+	Footer        string
+	alias         map[string]string
+	stringVars    map[string]bool
 	out           io.Writer
 	errorHandling ErrorHandling
-	setFlags   []string
+	setFlags      []string
 	*flag.FlagSet
 }
 
-var cmd = EFlagSet {
-		os.Args[0],
-		"",
-		"",
-		make(map[string]string),
-		make(map[string]bool),
-		os.Stderr,
-		ExitOnError,
-		make([]string, 0),
-		flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
+var cmd = EFlagSet{
+	os.Args[0],
+	"",
+	"",
+	make(map[string]string),
+	make(map[string]bool),
+	os.Stderr,
+	ExitOnError,
+	make([]string, 0),
+	flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
 }
 
 var (
-	ArrayVar = cmd.ArrayVar
-	SetOutput = cmd.SetOutput
+	ArrayVar      = cmd.ArrayVar
+	SetOutput     = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
-	Alias = cmd.Alias
-	String = cmd.String
-	StringVar = cmd.StringVar
-	Arg = cmd.Arg
-	Args = cmd.Args
-	Bool = cmd.Bool
-	BoolVar = cmd.BoolVar
-	Duration = cmd.Duration
-	DurationVar = cmd.DurationVar
-	Float64 = cmd.Float64
-	Float64Var = cmd.Float64Var
-	Int = cmd.Int
-	IntVar = cmd.IntVar
-	Int64 = cmd.Int64
-	Int64Var = cmd.Int64Var
-	Lookup = cmd.Lookup
-	NArg = cmd.NArg
-	NFlag = cmd.NFlag
-	Name = cmd.Name
-	Output = cmd.Output
-	Parsed = cmd.Parsed
-	Uint = cmd.Uint
-	UintVar = cmd.UintVar
-	Uint64 = cmd.Uint64
-	Uint64Var = cmd.Uint64Var
-	Var = cmd.Var
-	Visit = cmd.Visit
-	VisitAll = cmd.VisitAll
+	Alias         = cmd.Alias
+	String        = cmd.String
+	StringVar     = cmd.StringVar
+	Arg           = cmd.Arg
+	Args          = cmd.Args
+	Bool          = cmd.Bool
+	BoolVar       = cmd.BoolVar
+	Duration      = cmd.Duration
+	DurationVar   = cmd.DurationVar
+	Float64       = cmd.Float64
+	Float64Var    = cmd.Float64Var
+	Int           = cmd.Int
+	IntVar        = cmd.IntVar
+	Int64         = cmd.Int64
+	Int64Var      = cmd.Int64Var
+	Lookup        = cmd.Lookup
+	NArg          = cmd.NArg
+	NFlag         = cmd.NFlag
+	Name          = cmd.Name
+	Output        = cmd.Output
+	Parsed        = cmd.Parsed
+	Uint          = cmd.Uint
+	UintVar       = cmd.UintVar
+	Uint64        = cmd.Uint64
+	Uint64Var     = cmd.Uint64Var
+	Var           = cmd.Var
+	Visit         = cmd.Visit
+	VisitAll      = cmd.VisitAll
 )
 
 func Header(input string) {
@@ -227,7 +227,7 @@ func (s *EFlagSet) PrintDefaults() {
 
 		if len(name) > 1 && alias == "" {
 			bottom_text = append(bottom_text, strings.Join(text[0:], ""))
-		} else { 
+		} else {
 			fmt.Fprintf(output, strings.Join(text[0:], ""))
 		}
 	})
@@ -318,7 +318,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 		val := f.Value.String()
 		if strings.HasPrefix(val, "<") && strings.HasSuffix(val, ">") {
 			f.Value.Set("")
-		} 
+		}
 	}
 
 	s.FlagSet.VisitAll(clear_examples)
@@ -333,7 +333,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	s.Usage = func() {
 		if s.Header != "" {
 			fmt.Fprintf(s.out, "%s\n", s.Header)
-		} 
+		}
 		if s.name == "" {
 			fmt.Fprintf(s.out, "Available options:\n")
 		} else {
@@ -359,7 +359,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 					if strings.Contains(arg, cmd[1]) {
 						err = fmt.Errorf("%s%s", cmd[0], arg)
 						if s.errorHandling != ReturnErrorOnly {
-								fmt.Fprintf(s.out, "%s\n\n", errStr)
+							fmt.Fprintf(s.out, "%s\n\n", errStr)
 						}
 						break
 					}
@@ -369,7 +369,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 					fmt.Fprintf(s.out, "%s\n\n", errStr)
 				}
 			}
-		} 
+		}
 
 		// Errorflag handling.
 		switch s.errorHandling {

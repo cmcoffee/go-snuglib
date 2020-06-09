@@ -1,6 +1,6 @@
 # nfo
 --
-    import "github.com/cmcoffee/go-nfo"
+    import "github.com/cmcoffee/go-snuglib/nfo"
 
 Simple package to get user input from terminal.
 
@@ -33,7 +33,6 @@ Standard Loggers, minus debug and trace.
 
 ```go
 var (
-	FatalOnOutError    = true // Fatal on Output logging error.
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
 
@@ -86,20 +85,6 @@ func BlockShutdown()
 Global wait group, allows running processes to finish up tasks before app
 shutdown
 
-#### func  Close
-
-```go
-func Close(filename string) (err error)
-```
-Closes out a log file.
-
-#### func  Confirm
-
-```go
-func Confirm(prompt string) bool
-```
-Get confirmation
-
 #### func  Debug
 
 ```go
@@ -113,26 +98,20 @@ Log as Debug.
 func Defer(closer interface{}) func() error
 ```
 Adds a function to the global defer, function must take no arguments and either
-return nothing or return an error.
+return nothing or return an error. Returns function to be called by local
+keyword defer if you want to run it now and remove it from global defer.
 
 #### func  DisableExport
 
 ```go
-func DisableExport(flag int)
+func DisableExport(flag uint32)
 ```
 Specific which logger to not export.
-
-#### func  DisableOutput
-
-```go
-func DisableOutput(flag int)
-```
-Disable a specific logger
 
 #### func  EnableExport
 
 ```go
-func EnableExport(flag int)
+func EnableExport(flag uint32)
 ```
 Specify which logs to send to syslog.
 
@@ -159,15 +138,6 @@ func Fatal(vars ...interface{})
 ```
 Log as Fatal, then quit.
 
-#### func  File
-
-```go
-func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error)
-```
-Opens a new log file for writing, max_size is threshold for rotation,
-max_rotation is number of previous logs to hold on to. Set max_size_mb to 0 to
-disable file rotation.
-
 #### func  Flash
 
 ```go
@@ -176,12 +146,47 @@ func Flash(vars ...interface{})
 Don't log, write text to standard error which will be overwritten on the next
 output.
 
+#### func  GetConfirm
+
+```go
+func GetConfirm(prompt string) bool
+```
+Get confirmation
+
+#### func  GetInput
+
+```go
+func GetInput(prompt string) string
+```
+Gets user input, used during setup and configuration.
+
+#### func  GetLogFile
+
+```go
+func GetLogFile(flag uint32) io.Writer
+```
+Returns log file output.
+
+#### func  GetLogOutput
+
+```go
+func GetLogOutput(flag uint32) io.Writer
+```
+Returns log output for text.
+
+#### func  GetSecret
+
+```go
+func GetSecret(prompt string) string
+```
+Get Hidden/Password input, without returning information to the screen.
+
 #### func  HideTS
 
 ```go
-func HideTS()
+func HideTS(flag ...uint32)
 ```
-Hide timestamps in output.
+Disable Timestamp on output.
 
 #### func  HookSyslog
 
@@ -190,12 +195,12 @@ func HookSyslog(syslog_writer SyslogWriter)
 ```
 Send messages to syslog
 
-#### func  Input
+#### func  HumanSize
 
 ```go
-func Input(prompt string) string
+func HumanSize(bytes int64) string
 ```
-Gets user input, used during setup and configuration.
+Provides human readable file sizes.
 
 #### func  LTZ
 
@@ -204,12 +209,6 @@ func LTZ()
 ```
 Switches timestamps to local timezone. (Default Setting)
 
-#### func  LocalDefer
-
-```go
-func LocalDefer(closer func() error)
-```
-
 #### func  Log
 
 ```go
@@ -217,12 +216,14 @@ func Log(vars ...interface{})
 ```
 Log as Info.
 
-#### func  LogFileAppend
+#### func  LogFile
 
 ```go
-func LogFileAppend(existing_logger int, flag int)
+func LogFile(filename string, max_size_mb uint, max_rotation uint) (io.Writer, error)
 ```
-Tacks an additional logger to an exising log file.
+Opens a new log file for writing, max_size is threshold for rotation,
+max_rotation is number of previous logs to hold on to. Set max_size_mb to 0 to
+disable file rotation.
 
 #### func  NeedAnswer
 
@@ -245,30 +246,23 @@ func PressEnter(prompt string)
 ```
 Prompt to press enter.
 
-#### func  Secret
+#### func  SetLogFile
 
 ```go
-func Secret(prompt string) string
-```
-Get Hidden/Password input, without returning information to the screen.
-
-#### func  SetFile
-
-```go
-func SetFile(flag int, input io.Writer)
+func SetLogFile(flag uint32, input io.Writer)
 ```
 
-#### func  SetOutput
+#### func  SetLogOutput
 
 ```go
-func SetOutput(flag int, w io.Writer)
+func SetLogOutput(flag uint32, w io.Writer)
 ```
 Enable a specific logger.
 
 #### func  SetPrefix
 
 ```go
-func SetPrefix(logger int, prefix_str string)
+func SetPrefix(logger uint32, prefix_str string)
 ```
 Change prefix for specified logger.
 
@@ -279,19 +273,18 @@ func SetSignals(sig ...os.Signal)
 ```
 Sets the signals that we listen for.
 
-#### func  SetTimestamp
+#### func  SetTZ
 
 ```go
-func SetTimestamp(flag int, use_ts bool)
+func SetTZ(location string) (err error)
 ```
-Enable/Disable Timestamp on output.
 
 #### func  ShowTS
 
 ```go
-func ShowTS()
+func ShowTS(flag ...uint32)
 ```
-Show timestamps. (Default Enabled)
+Enable Timestamp on output.
 
 #### func  SignalCallback
 
@@ -349,6 +342,26 @@ Disconnect form syslog
 func Warn(vars ...interface{})
 ```
 Log as Warn.
+
+#### type ReadSeekCloser
+
+```go
+type ReadSeekCloser interface {
+	Seek(offset int64, whence int) (int64, error)
+	Read(p []byte) (n int, err error)
+	Close() error
+}
+```
+
+
+#### func  TransferMonitor
+
+```go
+func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadSeekCloser
+```
+Add Transfer to transferDisplay. Parameters are "name" displayed for file
+transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and
+"total_sz" the total size of the transfer.
 
 #### type SyslogWriter
 

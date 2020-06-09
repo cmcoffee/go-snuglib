@@ -1,12 +1,12 @@
 # iotimeout
 --
-    import "github.com/cmcoffee/go-iotimeout"
+    import "github.com/cmcoffee/go-snuglib/iotimeout"
 
 
 ## Usage
 
 ```go
-var ErrReadTimeout = errors.New("IO timeout exceeded waiting for bytes.")
+var ErrReadTimeout = errors.New("Timeout exceeded waiting for bytes.")
 ```
 
 #### type ReadCloser

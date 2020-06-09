@@ -1,6 +1,6 @@
 # wrotate
 --
-    import "github.com/cmcoffee/go-wrotate"
+    import "github.com/cmcoffee/go-snuglib/wrotate"
 
 
 ## Usage

@@ -1,9 +1,9 @@
 package nfo
 
 import (
+	"crypto/rand"
 	"os"
 	"os/signal"
-	"reflect"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -13,11 +13,14 @@ import (
 var (
 	// Signal Notification Channel. (ie..nfo.Signal<-os.Kill will initiate a shutdown.)
 	signalChan  = make(chan os.Signal)
-	globalDefer []func() error
-	defLock     sync.Mutex
-	errCode     = 0
-	wait        sync.WaitGroup
-	exit_lock   = make(chan struct{})
+	globalDefer struct {
+		mutex sync.Mutex
+		ids   []string
+		d_map map[string]func() error
+	}
+	errCode   = 0
+	wait      sync.WaitGroup
+	exit_lock = make(chan struct{})
 )
 
 // Global wait group, allows running processes to finish up tasks before app shutdown
@@ -30,26 +33,11 @@ func UnblockShutdown() {
 	wait.Done()
 }
 
-// This is a way of removing the global defer and instead locally defering to the function.
-func LocalDefer(closer func() error) {
-	defLock.Lock()
-	defer defLock.Unlock()
-
-	my_func := reflect.ValueOf(closer)
-	tmp := globalDefer[:0]
-	for _, v := range globalDefer {
-		if reflect.ValueOf(v) != my_func {
-			tmp = append(tmp, v)
-		}
-	}
-	globalDefer = tmp
-	closer()
-}
-
 // Adds a function to the global defer, function must take no arguments and either return nothing or return an error.
+// Returns function to be called by local keyword defer if you want to run it now and remove it from global defer.
 func Defer(closer interface{}) func() error {
-	defLock.Lock()
-	defer defLock.Unlock()
+	globalDefer.mutex.Lock()
+	defer globalDefer.mutex.Unlock()
 
 	errorWrapper := func(closerFunc func()) func() error {
 		return func() error {
@@ -58,16 +46,54 @@ func Defer(closer interface{}) func() error {
 		}
 	}
 
+	var id string
+
+	for {
+		// Generates a random tag.
+		id = func(ch string) string {
+			chlen := len(ch)
+
+			rand_string := make([]byte, 32)
+			rand.Read(rand_string)
+
+			for i, v := range rand_string {
+				rand_string[i] = ch[v%byte(chlen)]
+			}
+			return string(rand_string)
+		}("!@#$%^&*()_+-=][{}|/.,><abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+		// Check if tag is used already
+		if _, ok := globalDefer.d_map[id]; !ok {
+			break
+		}
+	}
+
+	globalDefer.ids = append(globalDefer.ids, id)
+
+	var d func() error
+
 	switch closer := closer.(type) {
 	case func():
-		e := errorWrapper(closer)
-		globalDefer = append([]func() error{e}, globalDefer[0:]...)
-		return e
+		d = errorWrapper(closer)
 	case func() error:
-		globalDefer = append([]func() error{closer}, globalDefer[0:]...)
-		return closer
+		d = closer
+	default:
+		return nil
 	}
-	return nil
+
+	globalDefer.d_map[id] = d
+
+	return func() error {
+		globalDefer.mutex.Lock()
+		defer globalDefer.mutex.Unlock()
+		delete(globalDefer.d_map, id)
+		for i := len(globalDefer.ids) - 1; i > -1; i-- {
+			if globalDefer.ids[i] == id {
+				globalDefer.ids = append(globalDefer.ids[:i], globalDefer.ids[i+1:]...)
+			}
+		}
+		return d()
+	}
 }
 
 // Intended to be a defer statement at the begining of main, but can be called at anytime with an exit code.
@@ -102,9 +128,9 @@ func SignalCallback(signal os.Signal, callback func() (continue_shutdown bool)) 
 var callbacks = make(map[os.Signal]func() bool)
 
 func init() {
+	globalDefer.d_map = make(map[string]func() error)
 	SetSignals(syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
-		var err error
 		for {
 			s := <-signalChan
 
@@ -134,23 +160,18 @@ func init() {
 			break
 		}
 
-		defLock.Lock()
-		defer defLock.Unlock()
+		globalDefer.mutex.Lock()
+		defer globalDefer.mutex.Unlock()
 
 		// Run through all globalDefer functions.
-		for _, x := range globalDefer {
-			if err = x(); err != nil {
+		for _, id := range globalDefer.ids {
+			if err := globalDefer.d_map[id](); err != nil {
 				write2log(ERROR|_bypass_lock, err.Error())
 			}
 		}
 
 		// Wait on any process that have access to wait.
 		wait.Wait()
-
-		// Close out all open files.
-		for name := range open_files {
-			Close(name)
-		}
 
 		// Finally exit the application
 		select {

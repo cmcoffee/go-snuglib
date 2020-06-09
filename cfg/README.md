@@ -1,6 +1,6 @@
 # cfg
 --
-    import "github.com/cmcoffee/go-cfg"
+    import "github.com/cmcoffee/go-snuglib/cfg"
 
 Package 'cfg' provides functions for reading and writing configuration files and
 their coresponding string values.

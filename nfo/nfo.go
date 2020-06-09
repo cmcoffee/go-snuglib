@@ -6,7 +6,7 @@ package nfo
 import (
 	"bytes"
 	"fmt"
-	"github.com/cmcoffee/go-wrotate"
+	"github.com/cmcoffee/go-snuglib/wrotate"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
@@ -45,7 +45,13 @@ const (
 	ALL = INFO | ERROR | WARN | NOTICE | FATAL | AUX | AUX2 | AUX3 | AUX4 | DEBUG | TRACE
 )
 
-var prefix = map[int]string{
+const (
+	textWriter = 1 << iota
+	fileWriter
+	setTimestamp
+)
+
+var prefix = map[uint32]string{
 	INFO:   "",
 	AUX:    "",
 	AUX2:   "",
@@ -60,7 +66,6 @@ var prefix = map[int]string{
 }
 
 var (
-	FatalOnOutError    = true // Fatal on Output logging error.
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
 	flush_len          int
@@ -70,26 +75,12 @@ var (
 	piped_stderr       bool
 	fatal_triggered    int32
 	msgBuffer          bytes.Buffer
-	enabled_exports    = STD
+	enabled_exports    = uint32(STD)
 	mutex              sync.Mutex
-	use_ts             = true
-	use_utc            = false
+	timezone           = time.Local
 )
 
-// False writer for discarding output.
-var None dummyWriter
-
-type dummyWriter struct{}
-
-func (dummyWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
-func (dummyWriter) Close() error {
-	return nil
-}
-
-var l_map = map[int]*_logger{
+var l_map = map[uint32]*_logger{
 	INFO:        {os.Stdout, None, true},
 	AUX:         {os.Stdout, None, true},
 	AUX2:        {os.Stdout, None, true},
@@ -113,17 +104,14 @@ func init() {
 	if !terminal.IsTerminal(int(os.Stderr.Fd())) {
 		piped_stderr = true
 	}
+	HideTS()
 }
 
 type _logger struct {
-	out1   io.Writer
-	out2   io.WriteCloser
-	use_ts bool
+	textout io.Writer
+	fileout io.Writer
+	use_ts  bool
 }
-
-// Keep map of open files
-var open_files = make(map[string]io.WriteCloser)
-var open_files_mutex sync.Mutex
 
 // Creates folders.
 func mkDir(name ...string) (err error) {
@@ -152,52 +140,32 @@ func mkDir(name ...string) (err error) {
 
 // Opens a new log file for writing, max_size is threshold for rotation, max_rotation is number of previous logs to hold on to.
 // Set max_size_mb to 0 to disable file rotation.
-func File(l_file_flag int, filename string, max_size_mb uint, max_rotation uint) (err error) {
+func LogFile(filename string, max_size_mb uint, max_rotation uint) (io.Writer, error) {
 	max_size := int64(max_size_mb * 1048576)
 	fpath, _ := filepath.Split(filename)
 
 	if err := mkDir(fpath); err != nil {
-		return err
+		return nil, err
 	}
 
 	file, err := wrotate.OpenFile(filename, max_size, max_rotation)
-	if err != nil {
-		return err
+	if err == nil {
+		Defer(file.Close)
 	}
-
-	open_files_mutex.Lock()
-	defer open_files_mutex.Unlock()
-
-	open_files[filename] = file
-	SetFile(l_file_flag, file)
-
-	return nil
+	return file, err
 }
 
-// Closes out a log file.
-func Close(filename string) (err error) {
-	open_files_mutex.Lock()
-	defer open_files_mutex.Unlock()
-	mutex.Lock()
-	defer mutex.Unlock()
-	f := open_files[filename]
-	for _, v := range l_map {
-		if v.out2 == f {
-			v.out2 = None
-		}
-	}
-	delete(open_files, filename)
-	return f.Close()
-}
+// False writer for discarding output.
+var None dummyWriter
 
-// Tacks an additional logger to an exising log file.
-func LogFileAppend(existing_logger int, flag int) {
-	logger := getLogger(existing_logger)
-	updateLogger(flag, 2, logger.out2)
+type dummyWriter struct{}
+
+func (dummyWriter) Write(p []byte) (int, error) {
+	return len(p), nil
 }
 
 // Retrieve first matching logger.
-func getLogger(flag int) *_logger {
+func getLogger(flag uint32) *_logger {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for k, v := range l_map {
@@ -209,25 +177,25 @@ func getLogger(flag int) *_logger {
 }
 
 // Updates logger.
-func updateLogger(flag int, field int, input interface{}) {
+func updateLogger(flag uint32, field uint32, input interface{}) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for k, v := range l_map {
 		if flag&k == k {
 			switch field {
-			case 1:
+			case textWriter:
 				if x, ok := input.(io.Writer); ok {
-					v.out1 = x
+					v.textout = x
 				} else {
 					return
 				}
-			case 2:
+			case fileWriter:
 				if x, ok := input.(io.WriteCloser); ok {
-					v.out2 = x
+					v.fileout = x
 				} else {
 					return
 				}
-			case 3:
+			case setTimestamp:
 				if x, ok := input.(bool); ok {
 					v.use_ts = x
 				} else {
@@ -240,78 +208,92 @@ func updateLogger(flag int, field int, input interface{}) {
 	}
 }
 
-// Hide timestamps in output.
-func HideTS() {
-	updateLogger(ALL, 3, false)
+// Returns log output for text.
+func GetLogOutput(flag uint32) io.Writer {
+	t := getLogger(flag)
+	return t.textout
 }
 
-// Show timestamps. (Default Enabled)
-func ShowTS() {
-	updateLogger(ALL, 3, true)
+// Returns log file output.
+func GetLogFile(flag uint32) io.Writer {
+	t := getLogger(flag)
+	return t.fileout
 }
 
-// Enable/Disable Timestamp on output.
-func SetTimestamp(flag int, use_ts bool) {
-	updateLogger(flag, 3, use_ts)
+// Enable Timestamp on output.
+func ShowTS(flag ...uint32) {
+	if len(flag) == 0 {
+		flag = append(flag, ALL)
+	}
+	updateLogger(flag[0], setTimestamp, true)
+}
+
+// Disable Timestamp on output.
+func HideTS(flag ...uint32) {
+	if len(flag) == 0 {
+		flag = append(flag, ALL)
+	}
+	updateLogger(flag[0], setTimestamp, false)
 }
 
 // Enable a specific logger.
-func SetOutput(flag int, w io.Writer) {
-	updateLogger(flag, 1, w)
+func SetLogOutput(flag uint32, w io.Writer) {
+	updateLogger(flag, textWriter, w)
 }
 
-func SetFile(flag int, input io.Writer) {
-	updateLogger(flag, 2, input)
-}
-
-// Disable a specific logger
-func DisableOutput(flag int) {
-	updateLogger(flag, 1, None)
+func SetLogFile(flag uint32, input io.Writer) {
+	updateLogger(flag, fileWriter, input)
 }
 
 // Specify which logs to send to syslog.
-func EnableExport(flag int) {
+func EnableExport(flag uint32) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	enabled_exports = enabled_exports | flag
 }
 
 // Specific which logger to not export.
-func DisableExport(flag int) {
+func DisableExport(flag uint32) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	enabled_exports = enabled_exports & ^flag
+}
+
+func SetTZ(location string) (err error) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	tz := timezone
+	timezone, err = time.LoadLocation(location)
+	if err != nil {
+		timezone = tz
+	}
+	return
 }
 
 // Switches timestamps to local timezone. (Default Setting)
 func LTZ() {
 	mutex.Lock()
 	defer mutex.Unlock()
-	use_utc = false
+	timezone = time.Local
 }
 
 // Switches logger to use UTC instead of local timezone.
 func UTC() {
 	mutex.Lock()
 	defer mutex.Unlock()
-	use_utc = true
+	timezone = time.UTC
 }
 
 // Generate TS Bytes
 func genTS(in *[]byte) {
-	var CT time.Time
-
-	if !use_utc {
-		CT = time.Now()
-	} else {
-		CT = time.Now().UTC()
-	}
+	CT := time.Now().In(timezone)
 
 	year, mon, day := CT.Date()
 	hour, min, sec := CT.Clock()
 
 	ts := in
 
+	*ts = append(*ts, '[')
 	Itoa(ts, year, 4)
 	*ts = append(*ts, '/')
 	Itoa(ts, int(mon), 2)
@@ -324,10 +306,14 @@ func genTS(in *[]byte) {
 	*ts = append(*ts, ':')
 	Itoa(ts, sec, 2)
 	*ts = append(*ts, ' ')
+
+	zone, _ := CT.Zone()
+	*ts = append(*ts, []byte(zone)[0:]...)
+	*ts = append(*ts, []byte("] ")[0:]...)
 }
 
 // Change prefix for specified logger.
-func SetPrefix(logger int, prefix_str string) {
+func SetPrefix(logger uint32, prefix_str string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for n := range prefix {
@@ -413,8 +399,8 @@ func Trace(vars ...interface{}) {
 	write2log(TRACE, vars...)
 }
 
-// sprintf
-func outputFactory(buffer io.Writer, vars ...interface{}) {
+// fprintf
+func fprintf(buffer io.Writer, vars ...interface{}) {
 	vlen := len(vars)
 
 	if vlen == 0 {
@@ -443,7 +429,7 @@ func outputFactory(buffer io.Writer, vars ...interface{}) {
 }
 
 // Prepares output text and sends to appropriate logging destinations.
-func write2log(flag int, vars ...interface{}) {
+func write2log(flag uint32, vars ...interface{}) {
 
 	if atomic.LoadInt32(&fatal_triggered) == 1 {
 		if flag&_bypass_lock == _bypass_lock {
@@ -472,10 +458,13 @@ func write2log(flag int, vars ...interface{}) {
 	// Reset buffer.
 	msgBuffer.Reset()
 
-	outputFactory(&msgBuffer, vars...)
+	// Create output string.
+	fprintf(&msgBuffer, vars...)
+
+	// Copy original output for export.
+	msg := msgBuffer.String()
 
 	output := msgBuffer.Bytes()
-	msg := msgBuffer.String()
 	output = append(pre, output[0:]...)
 	bufferLen := utf8.RuneCount(output)
 
@@ -490,7 +479,7 @@ func write2log(flag int, vars ...interface{}) {
 	}
 
 	// Clear out last flash text.
-	if flush_needed && !piped_stderr && ((logger.out1 == os.Stdout && !piped_stdout) || logger.out1 == os.Stderr) {
+	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
 		if bufferLen == 0 {
 			fmt.Fprintf(os.Stderr, "\r%s  \r", string(flush_line[0:flush_len]))
 		} else {
@@ -513,16 +502,8 @@ func write2log(flag int, vars ...interface{}) {
 		return
 	}
 
+	io.Copy(logger.textout, bytes.NewReader(output))
 	if flag&_no_logging == _no_logging {
-		io.Copy(logger.out1, bytes.NewReader(output))
-		return
-	}
-
-	var err error
-
-	_, err = io.Copy(logger.out1, bytes.NewReader(output))
-	if err != nil && FatalOnOutError {
-		go Fatal(err)
 		return
 	}
 
@@ -536,7 +517,7 @@ func write2log(flag int, vars ...interface{}) {
 	}
 
 	// Write to file.
-	_, err = io.Copy(logger.out2, bytes.NewReader(output))
+	_, err := io.Copy(logger.fileout, bytes.NewReader(output))
 	// Launch fatal in a go routine, as the mutex is currently locked.
 	if err != nil && FatalOnFileError {
 		go Fatal(err)
