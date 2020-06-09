@@ -17,6 +17,3 @@ xcuserdata
 # svn & cvs
 .svn
 CVS
-
-#additional
-update_docs.sh
