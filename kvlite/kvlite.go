@@ -1,13 +1,12 @@
 package kvlite
 
 import (
-	"encoding/gob"
-	"github.com/boltdb/bolt"
-	//"sync"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"encoding/gob"
+	"github.com/boltdb/bolt"
 )
 
 type Store interface {

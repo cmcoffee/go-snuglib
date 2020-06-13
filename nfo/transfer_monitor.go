@@ -24,13 +24,22 @@ type ReadSeekCloser interface {
 }
 
 func termWidth() int {
-	width, _, _ := terminal.GetSize(int(syscall.Stdin))
+	width, _, _ := terminal.GetSize(int(syscall.Stderr))
 	return width
 }
 
+const (
+	LeftToRight = 1 << iota // Display progress bar left to right.
+	RightToLeft             // Display progress bar right to left.
+	NoRate                  // Do not show transfer rate, left to right.
+	trans_active
+	trans_closed
+	trans_complete
+)
+
 // Add Transfer to transferDisplay.
 // Parameters are "name" displayed for file transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and "total_sz" the total size of the transfer.
-func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadSeekCloser {
+func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser) ReadSeekCloser {
 	transferDisplay.update_lock.Lock()
 	defer transferDisplay.update_lock.Unlock()
 
@@ -45,8 +54,14 @@ func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadS
 		}
 	}
 
+	b_flag := BitFlag(flag)
+	if b_flag.Has(LeftToRight) || b_flag <= 0 {
+		b_flag.Set(LeftToRight)
+	}
+	b_flag.Set(trans_active)
+
 	tm := &tmon{
-		flag:       trans_active,
+		flag:       b_flag,
 		name:       name,
 		short_name: string(short_name),
 		total_size: total_size,
@@ -55,6 +70,18 @@ func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadS
 		rate:       "0.0bps",
 		start_time: time.Now(),
 		source:     source,
+	}
+
+	var spin_index int
+	spin_txt := []string{"\\", "|", "/", "-"}
+
+	spinner := func() string {
+		if spin_index < len(spin_txt)-1 {
+			spin_index++
+		} else {
+			spin_index = 0
+		}
+		return fmt.Sprintf(spin_txt[spin_index])
 	}
 
 	transferDisplay.monitors = append(transferDisplay.monitors, tm)
@@ -90,7 +117,7 @@ func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadS
 				for _, v := range monitors {
 					for i := 0; i < 10; i++ {
 						if v.flag.Has(trans_active) {
-							v.showTransfer(false)
+							Flash("[%s] %s", spinner(), v.showTransfer(false))
 						} else {
 							break
 						}
@@ -121,7 +148,11 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 		if tm.flag.Has(trans_closed) {
 			return
 		}
-		tm.showTransfer(true)
+		if !tm.flag.Has(NoRate) {
+			Log(tm.showTransfer(true))
+		} else {
+			Flash("")
+		}
 		tm.flag.Set(trans_closed)
 	}
 	return
@@ -135,12 +166,6 @@ func (tm *tmon) Close() error {
 	tm.flag.Set(trans_closed)
 	return tm.source.Close()
 }
-
-const (
-	trans_active = 1 << iota
-	trans_closed
-	trans_complete
-)
 
 // Transfer Monitor
 type tmon struct {
@@ -157,29 +182,28 @@ type tmon struct {
 }
 
 // Outputs progress of TMonitor.
-func (t *tmon) showTransfer(log bool) {
+func (t *tmon) showTransfer(summary bool) string {
 	transfered := atomic.LoadInt64(&t.transfered)
 	rate := t.showRate()
 
-	var (
-		output func(vars ...interface{})
-		name   string
-	)
+	var name string
 
-	if log {
+	if summary {
 		t.flag.Unset(trans_active)
 		name = t.name
-		output = Log
 	} else {
 		name = t.short_name
-		output = Flash
 	}
 
 	// 35 + 8 +8 + 8 + 8
 	if t.total_size > -1 {
-		output("[%s] %s %s (%s/%s)", name, rate, t.progressBar(), HumanSize(transfered), HumanSize(t.total_size))
+		if !t.flag.Has(NoRate) {
+			return fmt.Sprintf("%s: %s %s (%s/%s)", name, rate, t.progressBar(), HumanSize(transfered), HumanSize(t.total_size))
+		} else {
+			return fmt.Sprintf("%s: %s", name, t.progressBar())
+		}
 	} else {
-		output("[%s] %s (%s)", t.name, rate, HumanSize(transfered))
+		return fmt.Sprintf("%s: %s (%s)", t.name, rate, HumanSize(transfered))
 	}
 }
 
@@ -231,22 +255,62 @@ func (t *tmon) progressBar() string {
 	if t.total_size == 0 {
 		num = 100
 	}
-	sz := termWidth() - 70
-	if t.flag.Has(trans_complete) {
-		sz = 20
+	sz := termWidth()
+
+	if !t.flag.Has(NoRate) {
+		sz = sz - 80
+	} else {
+		sz = sz - 50
 	}
-	if sz > 10 {
-		display := make([]rune, sz)
+
+	if t.flag.Has(trans_complete) || sz <= 0 {
+		sz = 30
+	}
+
+	display := make([]rune, sz)
+	x := num * sz / 100
+
+	if !t.flag.Has(NoRate) {
+		if sz > 10 {
+			if t.flag.Has(LeftToRight) {
+				for n := range display {
+					if n < x {
+						if n+1 < x {
+							display[n] = '='
+						} else {
+							display[n] = '>'
+						}
+					} else {
+						display[n] = ' '
+					}
+				}
+			} else {
+				x = sz - x - 1
+				for n := range display {
+					if n > x {
+						if n-1 > x {
+							display[n] = '='
+						} else {
+							display[n] = '<'
+						}
+					} else {
+						display[n] = ' '
+					}
+				}
+			}
+			return fmt.Sprintf("[%s] %d%%", string(display[0:]), int(num))
+		} else {
+			return fmt.Sprintf("%d%%", int(num))
+		}
+	} else {
 		for n := range display {
-			if n < num*sz/100 {
+			if n < x {
 				display[n] = '░'
 			} else {
 				display[n] = '.'
 			}
 		}
-		return fmt.Sprintf("[%s] %d%%", string(display[0:]), int(num))
-	} else {
-		return fmt.Sprintf("%d%%", int(num))
+		return fmt.Sprintf("%d%% [%s]", int(num), string(display[0:]))
 	}
 }
 

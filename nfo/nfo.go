@@ -49,21 +49,8 @@ const (
 	textWriter = 1 << iota
 	fileWriter
 	setTimestamp
+	setPrefix
 )
-
-var prefix = map[uint32]string{
-	INFO:   "",
-	AUX:    "",
-	AUX2:   "",
-	AUX3:   "",
-	AUX4:   "",
-	ERROR:  "[ERROR] ",
-	WARN:   "[WARN] ",
-	NOTICE: "[NOTICE] ",
-	DEBUG:  "[DEBUG] ",
-	TRACE:  "[TRACE] ",
-	FATAL:  "[FATAL] ",
-}
 
 var (
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
@@ -78,24 +65,23 @@ var (
 	enabled_exports    = uint32(STD)
 	mutex              sync.Mutex
 	timezone           = time.Local
+	l_map              = map[uint32]*_logger{
+		INFO:        {"", os.Stdout, None, true},
+		AUX:         {"", os.Stdout, None, true},
+		AUX2:        {"", os.Stdout, None, true},
+		AUX3:        {"", os.Stdout, None, true},
+		AUX4:        {"", os.Stdout, None, true},
+		ERROR:       {"[ERROR] ", os.Stdout, None, true},
+		WARN:        {"[WARN] ", os.Stdout, None, true},
+		NOTICE:      {"[NOTICE] ", os.Stdout, None, true},
+		DEBUG:       {"[DEBUG] ", None, None, true},
+		TRACE:       {"[TRACE] ", None, None, true},
+		FATAL:       {"[FATAL] ", os.Stdout, None, true},
+		_flash_txt:  {"", os.Stderr, None, false},
+		_print_txt:  {"", os.Stdout, None, false},
+		_stderr_txt: {"", os.Stderr, None, false},
+	}
 )
-
-var l_map = map[uint32]*_logger{
-	INFO:        {os.Stdout, None, true},
-	AUX:         {os.Stdout, None, true},
-	AUX2:        {os.Stdout, None, true},
-	AUX3:        {os.Stdout, None, true},
-	AUX4:        {os.Stdout, None, true},
-	ERROR:       {os.Stdout, None, true},
-	WARN:        {os.Stdout, None, true},
-	NOTICE:      {os.Stdout, None, true},
-	DEBUG:       {None, None, true},
-	TRACE:       {None, None, true},
-	FATAL:       {os.Stdout, None, true},
-	_flash_txt:  {os.Stderr, None, false},
-	_print_txt:  {os.Stdout, None, false},
-	_stderr_txt: {os.Stderr, None, false},
-}
 
 func init() {
 	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
@@ -108,6 +94,7 @@ func init() {
 }
 
 type _logger struct {
+	prefix  string
 	textout io.Writer
 	fileout io.Writer
 	use_ts  bool
@@ -201,6 +188,12 @@ func updateLogger(flag uint32, field uint32, input interface{}) {
 				} else {
 					return
 				}
+			case setPrefix:
+				if x, ok := input.(string); ok {
+					v.prefix = x
+				} else {
+					return
+				}
 			default:
 				return
 			}
@@ -209,13 +202,13 @@ func updateLogger(flag uint32, field uint32, input interface{}) {
 }
 
 // Returns log output for text.
-func GetLogOutput(flag uint32) io.Writer {
+func GetOutput(flag uint32) io.Writer {
 	t := getLogger(flag)
 	return t.textout
 }
 
 // Returns log file output.
-func GetLogFile(flag uint32) io.Writer {
+func GetFile(flag uint32) io.Writer {
 	t := getLogger(flag)
 	return t.fileout
 }
@@ -237,11 +230,11 @@ func HideTS(flag ...uint32) {
 }
 
 // Enable a specific logger.
-func SetLogOutput(flag uint32, w io.Writer) {
+func SetOutput(flag uint32, w io.Writer) {
 	updateLogger(flag, textWriter, w)
 }
 
-func SetLogFile(flag uint32, input io.Writer) {
+func SetFile(flag uint32, input io.Writer) {
 	updateLogger(flag, fileWriter, input)
 }
 
@@ -314,13 +307,7 @@ func genTS(in *[]byte) {
 
 // Change prefix for specified logger.
 func SetPrefix(logger uint32, prefix_str string) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	for n := range prefix {
-		if logger&n == n {
-			prefix[n] = prefix_str
-		}
-	}
+	updateLogger(logger, setPrefix, prefix_str)
 }
 
 // Don't log, write text to standard error which will be overwritten on the next output.
@@ -452,7 +439,7 @@ func write2log(flag uint32, vars ...interface{}) {
 		if logger.use_ts {
 			genTS(&pre)
 		}
-		pre = append(pre, []byte(prefix[flag])[0:]...)
+		pre = append(pre, []byte(logger.prefix)[0:]...)
 	}
 
 	// Reset buffer.

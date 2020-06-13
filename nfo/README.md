@@ -32,6 +32,15 @@ const (
 Standard Loggers, minus debug and trace.
 
 ```go
+const (
+	LeftToRight = 1 << iota // Display progress bar left to right.
+	RightToLeft             // Display progress bar right to left.
+	NoRate                  // Do not show transfer rate, left to right.
+
+)
+```
+
+```go
 var (
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
@@ -45,9 +54,13 @@ var None dummyWriter
 False writer for discarding output.
 
 ```go
-var PleaseWait _loader
+var PleaseWait *loader
 ```
 PleaseWait is a wait prompt to display between requests.
+
+```go
+var ProgressBar *progressBar
+```
 
 #### func  Aux
 
@@ -153,6 +166,13 @@ func GetConfirm(prompt string) bool
 ```
 Get confirmation
 
+#### func  GetFile
+
+```go
+func GetFile(flag uint32) io.Writer
+```
+Returns log file output.
+
 #### func  GetInput
 
 ```go
@@ -160,17 +180,10 @@ func GetInput(prompt string) string
 ```
 Gets user input, used during setup and configuration.
 
-#### func  GetLogFile
+#### func  GetOutput
 
 ```go
-func GetLogFile(flag uint32) io.Writer
-```
-Returns log file output.
-
-#### func  GetLogOutput
-
-```go
-func GetLogOutput(flag uint32) io.Writer
+func GetOutput(flag uint32) io.Writer
 ```
 Returns log output for text.
 
@@ -246,16 +259,16 @@ func PressEnter(prompt string)
 ```
 Prompt to press enter.
 
-#### func  SetLogFile
+#### func  SetFile
 
 ```go
-func SetLogFile(flag uint32, input io.Writer)
+func SetFile(flag uint32, input io.Writer)
 ```
 
-#### func  SetLogOutput
+#### func  SetOutput
 
 ```go
-func SetLogOutput(flag uint32, w io.Writer)
+func SetOutput(flag uint32, w io.Writer)
 ```
 Enable a specific logger.
 
@@ -357,7 +370,7 @@ type ReadSeekCloser interface {
 #### func  TransferMonitor
 
 ```go
-func TransferMonitor(name string, total_size int64, source ReadSeekCloser) ReadSeekCloser
+func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser) ReadSeekCloser
 ```
 Add Transfer to transferDisplay. Parameters are "name" displayed for file
 transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and

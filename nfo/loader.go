@@ -1,49 +1,58 @@
 package nfo
 
 import (
+	"fmt"
+	"github.com/cmcoffee/go-snuglib/bitflag"
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
-var start_time time.Time
-
 func init() {
-	start_time = time.Now()
-	PleaseWait = -1
-	PleaseWait.Set("Please wait ...", false, []string{"[\\]", "[|]", "[/]", "[-]"})
+	PleaseWait = new(loader)
+	ProgressBar = new(progressBar)
+	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
 	Defer(func() { PleaseWait.Hide() })
 }
 
-type _loader int32
-
 // PleaseWait is a wait prompt to display between requests.
-var PleaseWait _loader
+var PleaseWait *loader
+
+type loader struct {
+	flag     bitflag.BitFlag
+	message  func() string
+	loader_1 []string
+	loader_2 []string
+	mutex    sync.Mutex
+}
+
+const (
+	loader_running = 1 << iota
+	loader_stop
+	loader_show
+)
 
 // Specify a "Please wait" animated PleaseWait line.
-func (L *_loader) Set(message string, include_runtime bool, loader ...[]string) {
+func (L *loader) Set(message func() string, loader ...[]string) {
+	L.mutex.Lock()
+	defer L.mutex.Unlock()
 
 	if len(loader) == 0 {
 		return
 	}
 
-	existing := (int32)(PleaseWait)
-
 	// Disable exisiting PleaseWait
-	if atomic.LoadInt32((*int32)(&PleaseWait)) >= 0 {
-		atomic.StoreInt32((*int32)(&PleaseWait), 2)
-	} else {
-		existing = 0
-		atomic.StoreInt32((*int32)(&PleaseWait), 0)
+	if L.flag.Has(loader_running) {
+		L.flag.Set(loader_stop)
 	}
 
 	for {
-		if atomic.LoadInt32((*int32)(&PleaseWait)) == 2 {
+		if L.flag.Has(loader_running) {
 			time.Sleep(time.Millisecond * 125)
 			continue
 		}
 		break
 	}
-	atomic.StoreInt32((*int32)(&PleaseWait), existing)
 
 	var loader_1, loader_2 []string
 
@@ -56,32 +65,109 @@ func (L *_loader) Set(message string, include_runtime bool, loader ...[]string) 
 		loader_2 = make([]string, len(loader_1))
 	}
 
-	go func(message string, include_runtime bool, loader_1 []string, loader_2 []string) {
+	L.message = message
+	L.loader_1 = loader_1
+	L.loader_2 = loader_2
+
+	L.flag.Unset(loader_stop)
+	L.flag.Set(loader_running)
+
+	go func(message func() string, loader_1 []string, loader_2 []string) {
 		for {
-			if atomic.LoadInt32((*int32)(&PleaseWait)) == 2 {
-				atomic.StoreInt32((*int32)(&PleaseWait), 3)
+			if L.flag.Has(loader_stop) {
+				L.flag.Unset(loader_running)
 				break
 			}
 			for i, str := range loader_1 {
-				if atomic.LoadInt32((*int32)(&PleaseWait)) == 1 {
-					if include_runtime {
-						Flash("%s %s (%s) %s", str, message, time.Now().Sub(start_time).Round(time.Second).String(), loader_2[i])
-					} else {
-						Flash("%s %s %s", str, message, loader_2[i])
-					}
+				if L.flag.Has(loader_show) {
+					Flash("%s %s %s", str, message(), loader_2[i])
 				}
 				time.Sleep(125 * time.Millisecond)
 			}
 		}
-	}(message, include_runtime, loader_1, loader_2)
+	}(message, loader_1, loader_2)
 }
 
 // Displays loader. "[>>>] Working, Please wait."
-func (L *_loader) Show() {
-	atomic.CompareAndSwapInt32((*int32)(&PleaseWait), 0, 1)
+func (L *loader) Show() {
+	L.flag.Set(loader_show)
 }
 
 // Hides display loader.
-func (L *_loader) Hide() {
-	atomic.CompareAndSwapInt32((*int32)(&PleaseWait), 1, 0)
+func (L *loader) Hide() {
+	L.flag.Unset(loader_show)
+	Flash("")
+}
+
+type progressBar struct {
+	existing func() string
+	cur      int32
+	max      int32
+	working  bool
+	name     string
+	loader_1 []string
+	loader_2 []string
+}
+
+var ProgressBar *progressBar
+
+// Produces progress bar for information on update.
+func (p *progressBar) draw() string {
+	num := int((float64(atomic.LoadInt32(&p.cur)) / float64(atomic.LoadInt32(&p.max))) * 100)
+	sz := termWidth() - len(p.name) - 42
+	if sz > 10 {
+		display := make([]rune, sz)
+		x := num * sz / 100
+		for n := range display {
+			if n < x {
+				display[n] = '░'
+			} else {
+				display[n] = '.'
+			}
+		}
+		return fmt.Sprintf("%d%% [%s]", int(num), string(display[0:]))
+	} else {
+		return fmt.Sprintf("%d%%", int(num))
+	}
+}
+
+func (p *progressBar) updateMessage() string {
+	return fmt.Sprintf("%s (%d/%d %s)", p.draw(), p.cur, p.max, p.name)
+}
+
+func (p *progressBar) New(name string, max int) {
+	if p.working {
+		return
+	}
+
+	p.cur = 0
+	p.max = int32(max)
+	p.existing = PleaseWait.message
+	p.name = name
+	p.loader_1 = PleaseWait.loader_1
+	p.loader_2 = PleaseWait.loader_2
+	PleaseWait.Set(p.updateMessage, p.loader_1)
+	p.working = true
+}
+
+func (p *progressBar) Add(num int) {
+	if !p.working {
+		return
+	}
+	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)+int32(num))
+}
+
+func (p *progressBar) Sub(num int) {
+	if !p.working {
+		return
+	}
+	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)-int32(num))
+}
+
+func (p *progressBar) Done() {
+	if !p.working {
+		return
+	}
+	PleaseWait.Set(p.existing, p.loader_1, p.loader_2)
+	p.working = false
 }
