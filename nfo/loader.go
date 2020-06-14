@@ -169,7 +169,7 @@ func (p *progressBar) Done() {
 	if !p.working {
 		return
 	}
-	p.cur = 0
+
 	PleaseWait.Set(p.existing, p.loader_1, p.loader_2)
 	p.working = false
 }
