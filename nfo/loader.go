@@ -100,6 +100,7 @@ func (L *loader) Hide() {
 }
 
 type progressBar struct {
+	mutex    sync.Mutex
 	existing func() string
 	cur      int32
 	max      int32
@@ -136,6 +137,9 @@ func (p *progressBar) updateMessage() string {
 }
 
 func (p *progressBar) New(name string, max int) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	if p.working {
 		return
 	}
@@ -151,23 +155,21 @@ func (p *progressBar) New(name string, max int) {
 }
 
 func (p *progressBar) Add(num int) {
-	if !p.working {
-		return
-	}
 	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)+int32(num))
 }
 
 func (p *progressBar) Sub(num int) {
-	if !p.working {
-		return
-	}
 	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)-int32(num))
 }
 
 func (p *progressBar) Done() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	if !p.working {
 		return
 	}
+	p.cur = 0
 	PleaseWait.Set(p.existing, p.loader_1, p.loader_2)
 	p.working = false
 }
