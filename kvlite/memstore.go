@@ -11,6 +11,11 @@ type memStore struct {
 	encoder encoder
 }
 
+// Returns sub of table.
+func (K *memStore) Table(table string) Table {
+	return focused{table: table, store: K}
+}
+
 func (K *memStore) Keys(table string) (keys []string, err error) {
 	K.mutex.RLock()
 	defer K.mutex.RUnlock()

@@ -12,6 +12,8 @@ import (
 type Store interface {
 	// Tables provides a list of all tables.
 	Tables() (tables []string, err error)
+	// Table creats a SubStore of specified table.
+	Table(table string) Table
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -28,6 +30,39 @@ type Store interface {
 	Get(table, key string, output interface{}) (found bool, err error)
 	// Close closes the kvliter.Store.
 	Close() (err error)
+}
+
+type Table interface {
+	Keys() (keys []string, err error)
+	CountKeys() (count int, err error)
+	Set(key string, value interface{}) (err error)
+	CryptSet(key string, value interface{}) (err error)
+	Unset(key string) (err error)
+}
+
+type focused struct {
+	table string
+	store Store
+}
+
+func (s focused) Keys() (keys []string, err error) {
+	return s.store.Keys(s.table)
+}
+
+func (s focused) CountKeys() (count int, err error) {
+	return s.store.CountKeys(s.table)
+}
+
+func (s focused) Set(key string, value interface{}) (err error) {
+	return s.store.Set(s.table, key, value)
+}
+
+func (s focused) CryptSet(key string, value interface{}) (err error) {
+	return s.store.CryptSet(s.table, key, value)
+}
+
+func (s focused) Unset(key string) (err error) {
+	return s.store.Unset(s.table, key)
 }
 
 // Bolt Backend
@@ -171,6 +206,11 @@ func (K *boltDB) Tables() (tables []string, err error) {
 		return tx.ForEach(add_bucket)
 	})
 	return tables, err
+}
+
+// Returns sub of table.
+func (K *boltDB) Table(table string) Table {
+	return focused{table: table, store: K}
 }
 
 // Retrieve value from bolt db.

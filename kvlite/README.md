@@ -24,6 +24,8 @@ Resets encryption key on database, removing all encrypted keys in the process.
 type Store interface {
 	// Tables provides a list of all tables.
 	Tables() (tables []string, err error)
+	// Table creats a SubStore of specified table.
+	Table(table string) Table
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -57,3 +59,15 @@ Creates a new ephemeral memory based kvliter.Store.
 func Open(filename string, padlock ...byte) (Store, error)
 ```
 Opens BoltDB backed kvlite.Store.
+
+#### type Table
+
+```go
+type Table interface {
+	Keys() (keys []string, err error)
+	CountKeys() (count int, err error)
+	Set(key string, value interface{}) (err error)
+	CryptSet(key string, value interface{}) (err error)
+	Unset(key string) (err error)
+}
+```
