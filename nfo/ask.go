@@ -50,7 +50,7 @@ func PressEnter(prompt string) {
 		blank_line = append(blank_line, ' ')
 	}
 	terminal.ReadPassword(1)
-	fmt.Printf("%s\r", string(blank_line))
+	fmt.Printf("\r%s\r", string(blank_line))
 }
 
 // Gets user input, used during setup and configuration.
@@ -72,11 +72,7 @@ func GetSecret(prompt string) string {
 	fmt.Printf(prompt)
 	resp, _ := terminal.ReadPassword(int(syscall.Stdin))
 	output := cleanInput(string(resp))
-	if len(output) > 0 {
-		return output
-	}
 	fmt.Printf("\n")
-
 	return output
 }
 
