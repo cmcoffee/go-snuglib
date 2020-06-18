@@ -114,7 +114,12 @@ var ProgressBar *progressBar
 
 // Produces progress bar for information on update.
 func (p *progressBar) draw() string {
-	num := int((float64(atomic.LoadInt32(&p.cur)) / float64(atomic.LoadInt32(&p.max))) * 100)
+	var num int
+
+	if p.max > 0 {
+		num = int((float64(atomic.LoadInt32(&p.cur)) / float64(atomic.LoadInt32(&p.max))) * 100)
+	}
+
 	sz := termWidth() - len(p.name) - 42
 	if sz > 10 {
 		display := make([]rune, sz)
@@ -156,10 +161,6 @@ func (p *progressBar) New(name string, max int) {
 
 func (p *progressBar) Add(num int) {
 	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)+int32(num))
-}
-
-func (p *progressBar) Sub(num int) {
-	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)-int32(num))
 }
 
 func (p *progressBar) Done() {

@@ -141,6 +141,20 @@ func (s *EFlagSet) SetOutput(output io.Writer)
 ```
 Change where output will be directed.
 
+#### func (*EFlagSet) Split
+
+```go
+func (E *EFlagSet) Split(name string, example string, usage string) *[]string
+```
+Array variable, ie.. multiple --string=values
+
+#### func (*EFlagSet) SplitVar
+
+```go
+func (E *EFlagSet) SplitVar(p *[]string, name string, example string, usage string)
+```
+Array variable, ie.. multiple --string=values
+
 #### func (*EFlagSet) String
 
 ```go

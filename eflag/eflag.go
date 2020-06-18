@@ -36,6 +36,46 @@ func (s _voidText) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+type splitValue struct {
+	example string
+	value   *[]string
+}
+
+func (A *splitValue) String() string {
+	if len(*A.value) > 0 {
+		return strings.Join(*A.value, ",")
+	} else {
+		return fmt.Sprintf("\"%s\"", A.example)
+	}
+}
+
+func (A *splitValue) Set(value string) error {
+	A.example = ""
+	*A.value = append(*A.value, strings.Split(value, ",")[0:]...)
+	return nil
+}
+
+func (A *splitValue) Get() interface{} { return []string(*A.value) }
+
+// Array variable, ie.. multiple --string=values
+func (E *EFlagSet) Split(name string, example string, usage string) *[]string {
+	output := new([]string)
+	E.SplitVar(output, name, example, usage)
+	return output
+}
+
+// Array variable, ie.. multiple --string=values
+func (E *EFlagSet) SplitVar(p *[]string, name string, example string, usage string) {
+	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
+		example = example[1 : len(example)-1]
+	}
+	v := splitValue{
+		example: example,
+		value:   p,
+	}
+	E.Var(&v, name, usage)
+}
+
 // Array value, allows multiple --string=.
 type arrayValue struct {
 	example string
