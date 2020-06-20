@@ -9,16 +9,16 @@ import (
 )
 
 func init() {
-	PleaseWait = new(loader)
+	PleaseWait = new(Loader)
 	ProgressBar = new(progressBar)
 	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
 	Defer(func() { PleaseWait.Hide() })
 }
 
 // PleaseWait is a wait prompt to display between requests.
-var PleaseWait *loader
+var PleaseWait *Loader
 
-type loader struct {
+type Loader struct {
 	flag     bitflag.BitFlag
 	message  func() string
 	loader_1 []string
@@ -33,7 +33,7 @@ const (
 )
 
 // Specify a "Please wait" animated PleaseWait line.
-func (L *loader) Set(message func() string, loader ...[]string) {
+func (L *Loader) Set(message func() string, loader ...[]string) {
 	L.mutex.Lock()
 	defer L.mutex.Unlock()
 
@@ -89,12 +89,12 @@ func (L *loader) Set(message func() string, loader ...[]string) {
 }
 
 // Displays loader. "[>>>] Working, Please wait."
-func (L *loader) Show() {
+func (L *Loader) Show() {
 	L.flag.Set(loader_show)
 }
 
 // Hides display loader.
-func (L *loader) Hide() {
+func (L *Loader) Hide() {
 	L.flag.Unset(loader_show)
 	Flash("")
 }

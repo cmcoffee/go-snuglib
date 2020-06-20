@@ -68,6 +68,7 @@ type Table interface {
 	CountKeys() (count int, err error)
 	Set(key string, value interface{}) (err error)
 	CryptSet(key string, value interface{}) (err error)
+	Get(key string, value interface{}) (found bool, err error)
 	Unset(key string) (err error)
 }
 ```

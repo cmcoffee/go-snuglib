@@ -35,6 +35,7 @@ const (
 	trans_active
 	trans_closed
 	trans_complete
+	trans_error
 )
 
 // Add Transfer to transferDisplay.
@@ -45,13 +46,24 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 
 	var short_name []rune
 
+	target_size := 17
+
 	for i, v := range name {
-		if i < 32 {
+		if i <= target_size {
 			short_name = append(short_name, v)
 		} else {
-			short_name = append(short_name, []rune("...")[0:]...)
+			short_name = append(short_name, []rune("..")[0:]...)
 			break
 		}
+	}
+
+	if len(short_name) < target_size {
+		x := len(short_name) - 1
+		var y []rune
+		for i := 0; i < target_size+2-x; i++ {
+			y = append(y, ' ')
+		}
+		short_name = append(y[0:], short_name[0:]...)
 	}
 
 	b_flag := BitFlag(flag)
@@ -148,12 +160,12 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 		if tm.flag.Has(trans_closed) {
 			return
 		}
-		if !tm.flag.Has(NoRate) {
+		tm.flag.Set(trans_closed | trans_error)
+		if err != nil && !tm.flag.Has(NoRate) {
 			Log(tm.showTransfer(true))
 		} else {
 			Flash("")
 		}
-		tm.flag.Set(trans_closed)
 	}
 	return
 }
@@ -198,9 +210,9 @@ func (t *tmon) showTransfer(summary bool) string {
 	// 35 + 8 +8 + 8 + 8
 	if t.total_size > -1 {
 		if !t.flag.Has(NoRate) {
-			return fmt.Sprintf("%s: %s %s (%s/%s)", name, rate, t.progressBar(), HumanSize(transfered), HumanSize(t.total_size))
+			return fmt.Sprintf("%s: %s %s (%s/%s)", name, rate, t.progressBar(len(rate)), HumanSize(transfered), HumanSize(t.total_size))
 		} else {
-			return fmt.Sprintf("%s: %s", name, t.progressBar())
+			return fmt.Sprintf("%s: %s", name, t.progressBar(0))
 		}
 	} else {
 		return fmt.Sprintf("%s: %s (%s)", t.name, rate, HumanSize(transfered))
@@ -250,7 +262,7 @@ func (t *tmon) showRate() string {
 }
 
 // Produces progress bar for information on update.
-func (t *tmon) progressBar() string {
+func (t *tmon) progressBar(n int) string {
 	num := int((float64(atomic.LoadInt64(&t.transfered)) / float64(t.total_size)) * 100)
 	if t.total_size == 0 {
 		num = 100
@@ -258,13 +270,13 @@ func (t *tmon) progressBar() string {
 	sz := termWidth()
 
 	if !t.flag.Has(NoRate) {
-		sz = sz - 80
+		sz = sz - 35 - len(t.short_name) - n
 	} else {
-		sz = sz - 50
+		sz = sz - 15 - len(t.short_name) - n
 	}
 
-	if t.flag.Has(trans_complete) || sz <= 0 {
-		sz = 30
+	if t.flag.Has(trans_complete) || t.flag.Has(trans_error) || sz <= 0 {
+		sz = 10
 	}
 
 	display := make([]rune, sz)

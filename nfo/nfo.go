@@ -419,7 +419,7 @@ func fprintf(buffer io.Writer, vars ...interface{}) {
 func write2log(flag uint32, vars ...interface{}) {
 
 	if atomic.LoadInt32(&fatal_triggered) == 1 {
-		if flag&_bypass_lock == _bypass_lock {
+		if flag&_bypass_lock != 0 {
 			flag ^= _bypass_lock
 		} else {
 			return
@@ -476,7 +476,7 @@ func write2log(flag uint32, vars ...interface{}) {
 	}
 
 	// Flash text handler, make a line of text available to remove remnents of this text.
-	if flag&_flash_txt == _flash_txt {
+	if flag&_flash_txt != 0 {
 		if !piped_stderr {
 			for i := len(flush_line); i < bufferLen; i++ {
 				flush_line = append(flush_line[0:], ' ')
@@ -490,7 +490,7 @@ func write2log(flag uint32, vars ...interface{}) {
 	}
 
 	io.Copy(logger.textout, bytes.NewReader(output))
-	if flag&_no_logging == _no_logging {
+	if flag&_no_logging != 0 {
 		return
 	}
 

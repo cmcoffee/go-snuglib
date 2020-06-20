@@ -160,6 +160,8 @@ func init() {
 			break
 		}
 
+		PleaseWait.Hide()
+
 		globalDefer.mutex.Lock()
 		defer globalDefer.mutex.Unlock()
 

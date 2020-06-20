@@ -54,11 +54,6 @@ var None dummyWriter
 False writer for discarding output.
 
 ```go
-var PleaseWait *loader
-```
-PleaseWait is a wait prompt to display between requests.
-
-```go
 var ProgressBar *progressBar
 ```
 
@@ -355,6 +350,40 @@ Disconnect form syslog
 func Warn(vars ...interface{})
 ```
 Log as Warn.
+
+#### type Loader
+
+```go
+type Loader struct {
+}
+```
+
+
+```go
+var PleaseWait *Loader
+```
+PleaseWait is a wait prompt to display between requests.
+
+#### func (*Loader) Hide
+
+```go
+func (L *Loader) Hide()
+```
+Hides display loader.
+
+#### func (*Loader) Set
+
+```go
+func (L *Loader) Set(message func() string, loader ...[]string)
+```
+Specify a "Please wait" animated PleaseWait line.
+
+#### func (*Loader) Show
+
+```go
+func (L *Loader) Show()
+```
+Displays loader. "[>>>] Working, Please wait."
 
 #### type ReadSeekCloser
 
