@@ -226,8 +226,11 @@ func (K *boltDB) Get(table, key string, output interface{}) (found bool, err err
 			found = false
 			return nil
 		}
-		found = true
-		return K.encoder.decode(bucket.Get([]byte(key)), output)
+		data := bucket.Get([]byte(key))
+		if data != nil {
+			found = true
+		}
+		return K.encoder.decode(data, output)
 	})
 }
 

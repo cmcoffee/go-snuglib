@@ -161,6 +161,9 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 			return
 		}
 		tm.flag.Set(trans_closed | trans_error)
+		if tm.transfered == 0 {
+			return
+		}
 		if err != nil && !tm.flag.Has(NoRate) {
 			Log(tm.showTransfer(true))
 		} else {
