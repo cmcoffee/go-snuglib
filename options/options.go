@@ -10,26 +10,12 @@ import (
 	"text/tabwriter"
 )
 
-type options struct {
+type Options struct {
 	header    string
 	footer    string
 	exit_char rune
 	flags     bitflag.BitFlag
 	config    []Value
-}
-
-// Options Menu Interface
-type Options interface {
-	Register(input Value)
-	Select(seperate_last bool) (changed bool)
-	String(desc string, default_value string, help string, mask_value bool) *string
-	StringVar(p *string, desc string, value string, help string, mask_value bool)
-	Bool(desc string, value bool) *bool
-	BoolVar(p *bool, desc string, value bool)
-	Int(desc string, value int, help string, min int, max int) *int
-	IntVar(p *int, desc string, value int, help string, min int, max int)
-	Options(desc string, value Options, seperate_last bool)
-	Func(desc string, value func() bool)
 }
 
 // Options Value
@@ -40,8 +26,8 @@ type Value interface {
 }
 
 // Creates new Options Menu
-func NewOptions(header, footer string, exit_char rune) Options {
-	return &options{
+func NewOptions(header, footer string, exit_char rune) *Options {
+	return &Options{
 		header:    header,
 		footer:    footer,
 		exit_char: exit_char,
@@ -51,12 +37,12 @@ func NewOptions(header, footer string, exit_char rune) Options {
 }
 
 // Registers an Value with Options Menu
-func (T *options) Register(input Value) {
+func (T *Options) Register(input Value) {
 	T.config = append(T.config, input)
 }
 
 // Show Options Menu, if seperate_last = true, the last menu item will be dropped one line, and it's select number will be 0, seperating it from the rest.
-func (T *options) Select(seperate_last bool) (changed bool) {
+func (T *Options) Select(seperate_last bool) (changed bool) {
 	var text_buffer bytes.Buffer
 	txt := tabwriter.NewWriter(&text_buffer, 1, 8, 1, ' ', 0)
 
@@ -142,8 +128,8 @@ func showVar(input string, mask bool) string {
 	}
 }
 
-// / String defines an string menu option displaying with specified desc in menu, default value, and help string. The return value is the address of an string variable that stores the value of the option.
-func (O *options) String(desc string, value string, help string, mask_value bool) *string {
+// String defines an string menu option displaying with specified desc in menu, default value, and help string. The return value is the address of an string variable that stores the value of the option.
+func (O *Options) String(desc string, value string, help string, mask_value bool) *string {
 	new_var := &stringValue{
 		desc:  desc,
 		value: &value,
@@ -155,7 +141,7 @@ func (O *options) String(desc string, value string, help string, mask_value bool
 }
 
 // StringVar defines a string flag with specified name, default value, and usage string. The argument p points to a string variable in which to store the value of the flag.
-func (O *options) StringVar(p *string, desc string, value string, help string, mask_value bool) {
+func (O *Options) StringVar(p *string, desc string, value string, help string, mask_value bool) {
 	*p = value
 	O.Register(&stringValue{
 		desc:  desc,
@@ -167,7 +153,7 @@ func (O *options) StringVar(p *string, desc string, value string, help string, m
 }
 
 // Bool defines an int menu option displaying with specified desc in menu, default value, and help string. The return value is the address of an bool variable that stores the value of the option.
-func (O *options) Bool(desc string, value bool) *bool {
+func (O *Options) Bool(desc string, value bool) *bool {
 	new_var := &boolValue{
 		desc:  desc,
 		value: &value,
@@ -177,7 +163,7 @@ func (O *options) Bool(desc string, value bool) *bool {
 }
 
 // BoolVar defines a bool menu option displaying with specified desc in menu, default value, and help string. The argument p points to a bool variable in which to store the value of the option.
-func (O *options) BoolVar(p *bool, desc string, value bool) {
+func (O *Options) BoolVar(p *bool, desc string, value bool) {
 	*p = value
 	O.Register(&boolValue{
 		desc:  desc,
@@ -186,7 +172,7 @@ func (O *options) BoolVar(p *bool, desc string, value bool) {
 }
 
 // Int defines an int menu option displaying with specified desc in menu, default value, and help string. The return value is the address of an int variable that stores the value of the option.
-func (O *options) Int(desc string, value int, help string, min, max int) *int {
+func (O *Options) Int(desc string, value int, help string, min, max int) *int {
 	new_var := &intValue{
 		desc:  desc,
 		value: &value,
@@ -198,7 +184,7 @@ func (O *options) Int(desc string, value int, help string, min, max int) *int {
 	return &value
 }
 
-func (O *options) IntVar(p *int, desc string, value int, help string, min, max int) {
+func (O *Options) IntVar(p *int, desc string, value int, help string, min, max int) {
 	*p = value
 	O.Register(&intValue{
 		desc:  desc,
@@ -209,8 +195,8 @@ func (O *options) IntVar(p *int, desc string, value int, help string, min, max i
 	})
 }
 
-// Option defines an nested options menu option displaying with specified desc in menu, seperate_last will seperate the last menu option within the sub options when selected.
-func (O *options) Options(desc string, value Options, seperate_last bool) {
+// Option defines an nested Options menu option displaying with specified desc in menu, seperate_last will seperate the last menu option within the sub Options when selected.
+func (O *Options) Options(desc string, value *Options, seperate_last bool) {
 	O.Register(&optionsValue{
 		desc:          desc,
 		value:         value,
@@ -219,7 +205,7 @@ func (O *options) Options(desc string, value Options, seperate_last bool) {
 }
 
 // Func defined a function within the option menu, the function should return a bool variable telling the Options menu if a change has occured.
-func (O *options) Func(desc string, value func() bool) {
+func (O *Options) Func(desc string, value func() bool) {
 	O.Register(&funcValue{
 		desc:  desc,
 		value: value,
@@ -332,11 +318,11 @@ func (I *intValue) String() string {
 	return fmt.Sprintf("%s:\t%d", I.desc, *I.value)
 }
 
-// Nested options.
+// Nested Options.
 type optionsValue struct {
 	desc          string
 	seperate_last bool
-	value         Options
+	value         *Options
 }
 
 func (O *optionsValue) Set() bool {
