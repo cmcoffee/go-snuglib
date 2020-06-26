@@ -9,31 +9,45 @@ import (
 )
 
 func init() {
-	PleaseWait = new(Loader)
-	ProgressBar = new(progressBar)
+	PleaseWait = new(loading)
 	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
 	Defer(func() { PleaseWait.Hide() })
 }
 
 // PleaseWait is a wait prompt to display between requests.
-var PleaseWait *Loader
+var PleaseWait *loading
 
-type Loader struct {
-	flag     bitflag.BitFlag
-	message  func() string
-	loader_1 []string
-	loader_2 []string
-	mutex    sync.Mutex
+type loading struct {
+	flag    bitflag.BitFlag
+	message func() string
+	anim_1  []string
+	anim_2  []string
+	mutex   sync.Mutex
+	counter int32
+}
+
+type loading_backup struct {
+	message func() string
+	anim_1  []string
+	anim_2  []string
 }
 
 const (
-	loader_running = 1 << iota
-	loader_stop
-	loader_show
+	loading_show = 1 << iota
 )
 
+func (B *loading_backup) Restore() {
+	PleaseWait.Set(B.message, B.anim_1, B.anim_2)
+}
+
+func (L *loading) Backup() *loading_backup {
+	L.mutex.Lock()
+	defer L.mutex.Unlock()
+	return &loading_backup{L.message, L.anim_1, L.anim_2}
+}
+
 // Specify a "Please wait" animated PleaseWait line.
-func (L *Loader) Set(message func() string, loader ...[]string) {
+func (L *loading) Set(message func() string, loader ...[]string) {
 	L.mutex.Lock()
 	defer L.mutex.Unlock()
 
@@ -41,73 +55,53 @@ func (L *Loader) Set(message func() string, loader ...[]string) {
 		return
 	}
 
-	// Disable exisiting PleaseWait
-	if L.flag.Has(loader_running) {
-		L.flag.Set(loader_stop)
-	}
+	var anim_1, anim_2 []string
 
-	for {
-		if L.flag.Has(loader_running) {
-			time.Sleep(time.Millisecond * 125)
-			continue
-		}
-		break
-	}
-
-	var loader_1, loader_2 []string
-
-	loader_1 = loader[0]
+	anim_1 = loader[0]
 	if len(loader) > 1 {
-		loader_2 = loader[1]
+		anim_2 = loader[1]
 	}
 
-	if loader_2 == nil || len(loader_2) < len(loader_1) {
-		loader_2 = make([]string, len(loader_1))
+	if anim_2 == nil || len(anim_2) < len(anim_1) {
+		anim_2 = make([]string, len(anim_1))
 	}
 
 	L.message = message
-	L.loader_1 = loader_1
-	L.loader_2 = loader_2
+	L.anim_1 = anim_1
+	L.anim_2 = anim_2
+	atomic.AddInt32(&L.counter, 1)
 
-	L.flag.Unset(loader_stop)
-	L.flag.Set(loader_running)
-
-	go func(message func() string, loader_1 []string, loader_2 []string) {
-		for {
-			if L.flag.Has(loader_stop) {
-				L.flag.Unset(loader_running)
-				break
-			}
-			for i, str := range loader_1 {
-				if L.flag.Has(loader_show) {
-					Flash("%s %s %s", str, message(), loader_2[i])
+	go func(message func() string, anim_1 []string, anim_2 []string) {
+		count := atomic.LoadInt32(&L.counter)
+		for count == atomic.LoadInt32(&L.counter) {
+			for i, str := range anim_1 {
+				if L.flag.Has(loading_show) && count == atomic.LoadInt32(&L.counter) {
+					Flash("%s %s %s", str, message(), anim_2[i])
 				}
 				time.Sleep(125 * time.Millisecond)
 			}
 		}
-	}(message, loader_1, loader_2)
+	}(message, anim_1, anim_2)
 }
 
 // Displays loader. "[>>>] Working, Please wait."
-func (L *Loader) Show() {
-	L.flag.Set(loader_show)
+func (L *loading) Show() {
+	L.flag.Set(loading_show)
 }
 
 // Hides display loader.
-func (L *Loader) Hide() {
-	L.flag.Unset(loader_show)
+func (L *loading) Hide() {
+	L.flag.Unset(loading_show)
 	Flash("")
 }
 
 type progressBar struct {
-	mutex    sync.Mutex
-	existing func() string
-	cur      int32
-	max      int32
-	working  bool
-	name     string
-	loader_1 []string
-	loader_2 []string
+	mutex   sync.Mutex
+	cur     int32
+	max     int32
+	working bool
+	name    string
+	backup  *loading_backup
 }
 
 var ProgressBar *progressBar
@@ -151,11 +145,8 @@ func (p *progressBar) New(name string, max int) {
 
 	p.cur = 0
 	p.max = int32(max)
-	p.existing = PleaseWait.message
-	p.name = name
-	p.loader_1 = PleaseWait.loader_1
-	p.loader_2 = PleaseWait.loader_2
-	PleaseWait.Set(p.updateMessage, p.loader_1)
+	p.backup = PleaseWait.Backup()
+	PleaseWait.Set(p.updateMessage, PleaseWait.anim_1)
 	p.working = true
 }
 
@@ -171,6 +162,8 @@ func (p *progressBar) Done() {
 		return
 	}
 
-	PleaseWait.Set(p.existing, p.loader_1, p.loader_2)
+	if p.backup != nil {
+		p.backup.Restore()
+	}
 	p.working = false
 }

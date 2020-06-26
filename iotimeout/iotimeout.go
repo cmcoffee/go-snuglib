@@ -6,39 +6,41 @@ package iotimeout
 
 import (
 	"errors"
+	. "github.com/cmcoffee/go-snuglib/bitflag"
 	"io"
-	"sync/atomic"
 	"time"
 )
 
 var ErrReadTimeout = errors.New("Timeout exceeded waiting for bytes.")
 
 const (
-	working = 1 << iota
-	waiting
-	halt
+	waiting = 1 << iota
+	halted
 )
 
 // Timer for io tranfer
-func start_timer(timeout time.Duration, flag *int32, expired chan struct{}) {
+func start_timer(timeout time.Duration, flag *BitFlag, input chan []byte, expired chan struct{}) {
 	timeout_seconds := int64(timeout.Round(time.Second).Seconds())
 
 	var cnt int64
 
 	for {
 		time.Sleep(time.Second)
-		switch atomic.LoadInt32(flag) {
-		case working:
-			cnt = 0
-			atomic.StoreInt32(flag, waiting)
-		case waiting:
+
+		if flag.Has(halted) {
+			input <- nil
+			break
+		}
+
+		if flag.Has(waiting) {
 			cnt++
 			if timeout_seconds > 0 && cnt >= timeout_seconds {
 				expired <- struct{}{}
-				break
+				flag.Set(halted)
 			}
-		case halt:
-			break
+		} else {
+			cnt = 0
+			flag.Set(waiting)
 		}
 	}
 }
@@ -50,7 +52,8 @@ type resp struct {
 
 // Timeout Reader.
 type Reader struct {
-	flag    int32
+	src     io.Reader
+	flag    BitFlag
 	input   chan []byte
 	output  chan resp
 	expired chan struct{}
@@ -65,11 +68,12 @@ type ReadCloser struct {
 // Timeout ReadCloser: Adds a timer to io.Reader
 func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 	t := new(Reader)
+	t.src = reader
 	t.input = make(chan []byte, 1)
-	t.output = make(chan resp, 1)
-	t.expired = make(chan struct{}, 1)
+	t.output = make(chan resp, 0)
+	t.expired = make(chan struct{}, 0)
 
-	go start_timer(timeout, &t.flag, t.expired)
+	go start_timer(timeout, &t.flag, t.input, t.expired)
 
 	go func() {
 		var (
@@ -78,12 +82,12 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 		)
 		for {
 			p = <-t.input
-			atomic.StoreInt32(&t.flag, working)
-			data.n, data.err = reader.Read(p)
-			t.output <- data
-			if data.err != nil {
+			if p == nil {
 				break
 			}
+			t.flag.Unset(waiting)
+			data.n, data.err = reader.Read(p)
+			t.output <- data
 		}
 	}()
 	return t
@@ -91,7 +95,9 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 
 // Time Sensitive Read function.
 func (t *Reader) Read(p []byte) (n int, err error) {
-	//atomic.StoreInt32(&t.flag, working)
+	if t.flag.Has(halted) {
+		return t.src.Read(p)
+	}
 	t.input <- p
 
 	select {
@@ -99,10 +105,11 @@ func (t *Reader) Read(p []byte) (n int, err error) {
 		n = data.n
 		err = data.err
 	case <-t.expired:
+		t.flag.Set(halted)
 		return -1, ErrReadTimeout
 	}
 	if err != nil {
-		atomic.StoreInt32(&t.flag, halt)
+		t.flag.Set(halted)
 	}
 	return
 }
@@ -115,5 +122,6 @@ func NewReadCloser(readcloser io.ReadCloser, timeout time.Duration) *ReadCloser 
 
 // Close function for ReadCloser.
 func (t *ReadCloser) Close() (err error) {
+	t.flag.Set(halted)
 	return t.closerFunc()
 }
