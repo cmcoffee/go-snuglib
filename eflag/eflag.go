@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
-	"time"
 )
 
 // Duplicate flag's ErrorHandling.
@@ -277,32 +276,12 @@ func (s *EFlagSet) PrintDefaults() {
 }
 
 // Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.
-func (s *EFlagSet) Alias(val interface{}, name string, alias string) {
+func (s *EFlagSet) Alias(name string, alias string) {
 	flag := s.Lookup(name)
 	if flag == nil {
 		return
 	}
-	switch v := val.(type) {
-	case *bool:
-		s.BoolVar(v, alias, *v, "")
-	case *time.Duration:
-		s.DurationVar(v, alias, *v, "")
-	case *float64:
-		s.Float64Var(v, alias, *v, "")
-	case *int:
-		s.IntVar(v, alias, *v, "")
-	case *int64:
-		s.Int64Var(v, alias, *v, "")
-	case *string:
-		s.StringVar(v, alias, *v, "")
-	case *uint:
-		s.UintVar(v, alias, *v, "")
-	case *uint64:
-		s.Uint64Var(v, alias, *v, "")
-	default:
-		s.Var(flag.Value, alias, "")
-
-	}
+	s.Var(flag.Value, alias, "")
 	s.alias[name] = alias
 }
 

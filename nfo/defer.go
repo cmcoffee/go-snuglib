@@ -68,8 +68,6 @@ func Defer(closer interface{}) func() error {
 		}
 	}
 
-	globalDefer.ids = append(globalDefer.ids, id)
-
 	var d func() error
 
 	switch closer := closer.(type) {
@@ -81,6 +79,7 @@ func Defer(closer interface{}) func() error {
 		return nil
 	}
 
+	globalDefer.ids = append(globalDefer.ids, id)
 	globalDefer.d_map[id] = d
 
 	return func() error {
@@ -167,6 +166,9 @@ func init() {
 
 		// Run through all globalDefer functions.
 		for _, id := range globalDefer.ids {
+			/*if _, ok := globalDefer.d_map[id]; !ok {
+				continue
+			}*/
 			if err := globalDefer.d_map[id](); err != nil {
 				write2log(ERROR|_bypass_lock, err.Error())
 			}

@@ -95,7 +95,7 @@ Load a flag created with flag package.
 #### func (*EFlagSet) Alias
 
 ```go
-func (s *EFlagSet) Alias(val interface{}, name string, alias string)
+func (s *EFlagSet) Alias(name string, alias string)
 ```
 Adds an alias to an existing flag, requires a pointer to the variable, the
 current name and the new alias name.

@@ -10,6 +10,7 @@ import (
 
 func init() {
 	PleaseWait = new(loading)
+	ProgressBar = new(progressBar)
 	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
 	Defer(func() { PleaseWait.Hide() })
 }
@@ -125,16 +126,17 @@ func (p *progressBar) draw() string {
 				display[n] = '.'
 			}
 		}
-		return fmt.Sprintf("%d%% [%s]", int(num), string(display[0:]))
+		return fmt.Sprintf("(%s) %d%%", string(display[0:]), int(num))
 	} else {
 		return fmt.Sprintf("%d%%", int(num))
 	}
 }
 
 func (p *progressBar) updateMessage() string {
-	return fmt.Sprintf("%s (%d/%d %s)", p.draw(), p.cur, p.max, p.name)
+	return fmt.Sprintf("Please wait ... [%d/%d %s] %s", p.cur, p.max, p.name, p.draw())
 }
 
+// Updates loading to be a progress bar.
 func (p *progressBar) New(name string, max int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -145,15 +147,18 @@ func (p *progressBar) New(name string, max int) {
 
 	p.cur = 0
 	p.max = int32(max)
+	p.name = name
 	p.backup = PleaseWait.Backup()
 	PleaseWait.Set(p.updateMessage, PleaseWait.anim_1)
 	p.working = true
 }
 
+// Adds to progress bar.
 func (p *progressBar) Add(num int) {
 	atomic.StoreInt32(&p.cur, atomic.LoadInt32(&p.cur)+int32(num))
 }
 
+// Complete progress bar, return to loading.
 func (p *progressBar) Done() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()

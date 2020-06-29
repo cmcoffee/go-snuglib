@@ -175,9 +175,6 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 
 // Clouse out speicfic transfer monitor
 func (tm *tmon) Close() error {
-	if tm.flag.Has(trans_closed) {
-		return tm.source.Close()
-	}
 	tm.flag.Set(trans_closed)
 	return tm.source.Close()
 }

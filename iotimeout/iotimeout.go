@@ -8,10 +8,11 @@ import (
 	"errors"
 	. "github.com/cmcoffee/go-snuglib/bitflag"
 	"io"
+	"sync"
 	"time"
 )
 
-var ErrReadTimeout = errors.New("Timeout exceeded waiting for bytes.")
+var ErrTimeout = errors.New("Timeout reached while waiting for bytes.")
 
 const (
 	waiting = 1 << iota
@@ -26,7 +27,6 @@ func start_timer(timeout time.Duration, flag *BitFlag, input chan []byte, expire
 
 	for {
 		time.Sleep(time.Second)
-
 		if flag.Has(halted) {
 			input <- nil
 			break
@@ -35,8 +35,10 @@ func start_timer(timeout time.Duration, flag *BitFlag, input chan []byte, expire
 		if flag.Has(waiting) {
 			cnt++
 			if timeout_seconds > 0 && cnt >= timeout_seconds {
-				expired <- struct{}{}
 				flag.Set(halted)
+				expired <- struct{}{}
+				input <- nil
+				break
 			}
 		} else {
 			cnt = 0
@@ -51,27 +53,35 @@ type resp struct {
 }
 
 // Timeout Reader.
-type Reader struct {
-	src     io.Reader
+type readCloser struct {
+	src     io.ReadCloser
 	flag    BitFlag
 	input   chan []byte
 	output  chan resp
 	expired chan struct{}
+	mutex   sync.Mutex
 }
 
-// Timeout ReadCloser
-type ReadCloser struct {
-	*Reader
-	closerFunc func() error
+type reader struct {
+	io.Reader
 }
 
-// Timeout ReadCloser: Adds a timer to io.Reader
-func NewReader(reader io.Reader, timeout time.Duration) *Reader {
-	t := new(Reader)
-	t.src = reader
-	t.input = make(chan []byte, 1)
-	t.output = make(chan resp, 0)
-	t.expired = make(chan struct{}, 0)
+func (r reader) Close() (err error) {
+	return nil
+}
+
+// Timeout Reader: Adds a time to io.Reader
+func NewReader(source io.Reader, timeout time.Duration) io.Reader {
+	return NewReadCloser(reader{source}, timeout)
+}
+
+// Timeout ReadCloser: Adds a timer to io.ReadCloser
+func NewReadCloser(source io.ReadCloser, timeout time.Duration) io.ReadCloser {
+	t := new(readCloser)
+	t.src = source
+	t.input = make(chan []byte, 2)
+	t.output = make(chan resp, 1)
+	t.expired = make(chan struct{}, 1)
 
 	go start_timer(timeout, &t.flag, t.input, t.expired)
 
@@ -86,7 +96,7 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 				break
 			}
 			t.flag.Unset(waiting)
-			data.n, data.err = reader.Read(p)
+			data.n, data.err = source.Read(p)
 			t.output <- data
 		}
 	}()
@@ -94,10 +104,17 @@ func NewReader(reader io.Reader, timeout time.Duration) *Reader {
 }
 
 // Time Sensitive Read function.
-func (t *Reader) Read(p []byte) (n int, err error) {
+func (t *readCloser) Read(p []byte) (n int, err error) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	if t.flag.Has(halted) {
 		return t.src.Read(p)
 	}
+
+	// Set an idle timer.
+	defer t.flag.Set(waiting)
+
 	t.input <- p
 
 	select {
@@ -106,22 +123,17 @@ func (t *Reader) Read(p []byte) (n int, err error) {
 		err = data.err
 	case <-t.expired:
 		t.flag.Set(halted)
-		return -1, ErrReadTimeout
+		return -1, ErrTimeout
 	}
 	if err != nil {
 		t.flag.Set(halted)
 	}
+	// Set an idle timer.
 	return
 }
 
-// Timeout ReadCloser: Adds a timer to io.ReadCloser
-func NewReadCloser(readcloser io.ReadCloser, timeout time.Duration) *ReadCloser {
-	t := NewReader(readcloser, timeout)
-	return &ReadCloser{t, readcloser.Close}
-}
-
 // Close function for ReadCloser.
-func (t *ReadCloser) Close() (err error) {
+func (t *readCloser) Close() (err error) {
 	t.flag.Set(halted)
-	return t.closerFunc()
+	return t.src.Close()
 }

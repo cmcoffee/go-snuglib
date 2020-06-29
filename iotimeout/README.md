@@ -6,52 +6,19 @@
 ## Usage
 
 ```go
-var ErrReadTimeout = errors.New("Timeout exceeded waiting for bytes.")
+var ErrTimeout = errors.New("Timeout reached while waiting for bytes.")
 ```
-
-#### type ReadCloser
-
-```go
-type ReadCloser struct {
-	*Reader
-}
-```
-
-Timeout ReadCloser
 
 #### func  NewReadCloser
 
 ```go
-func NewReadCloser(readcloser io.ReadCloser, timeout time.Duration) *ReadCloser
+func NewReadCloser(source io.ReadCloser, timeout time.Duration) io.ReadCloser
 ```
 Timeout ReadCloser: Adds a timer to io.ReadCloser
-
-#### func (*ReadCloser) Close
-
-```go
-func (t *ReadCloser) Close() (err error)
-```
-Close function for ReadCloser.
-
-#### type Reader
-
-```go
-type Reader struct {
-}
-```
-
-Timeout Reader.
 
 #### func  NewReader
 
 ```go
-func NewReader(reader io.Reader, timeout time.Duration) *Reader
+func NewReader(source io.Reader, timeout time.Duration) io.Reader
 ```
-Timeout ReadCloser: Adds a timer to io.Reader
-
-#### func (*Reader) Read
-
-```go
-func (t *Reader) Read(p []byte) (n int, err error)
-```
-Time Sensitive Read function.
+Timeout Reader: Adds a time to io.Reader
