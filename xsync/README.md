@@ -1,7 +1,9 @@
-# bitflag
+# xsync
 --
-    import "github.com/cmcoffee/go-snuglib/bitflag"
+    import "github.com/cmcoffee/go-snuglib/xsync"
 
+LimitGroup is a sync.WaitGroup combined with a limiter, to limit how many
+threads are created.
 
 ## Usage
 
@@ -60,3 +62,21 @@ Set BitFlag
 func (B *BitFlag64) Unset(flag uint64)
 ```
 Unset BitFlag
+
+#### type LimitGroup
+
+```go
+type LimitGroup interface {
+	Add(n int)
+	Try() bool
+	Done()
+	Wait()
+}
+```
+
+
+#### func  NewLimitGroup
+
+```go
+func NewLimitGroup(max int) LimitGroup
+```

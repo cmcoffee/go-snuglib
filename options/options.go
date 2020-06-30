@@ -3,8 +3,8 @@ package options
 import (
 	"bytes"
 	"fmt"
-	"github.com/cmcoffee/go-snuglib/bitflag"
 	. "github.com/cmcoffee/go-snuglib/nfo"
+	"github.com/cmcoffee/go-snuglib/xsync"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -14,7 +14,7 @@ type Options struct {
 	header    string
 	footer    string
 	exit_char rune
-	flags     bitflag.BitFlag
+	flags     xsync.BitFlag
 	config    []Value
 }
 

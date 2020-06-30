@@ -2,7 +2,7 @@ package nfo
 
 import (
 	"fmt"
-	. "github.com/cmcoffee/go-snuglib/bitflag"
+	. "github.com/cmcoffee/go-snuglib/xsync"
 	"golang.org/x/crypto/ssh/terminal"
 	"sync"
 	"sync/atomic"
@@ -164,18 +164,14 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 		if tm.transfered == 0 {
 			return
 		}
-		if err != nil && !tm.flag.Has(NoRate) {
-			Log(tm.showTransfer(true))
-		} else {
-			Flash("")
-		}
 	}
 	return
 }
 
-// Clouse out speicfic transfer monitor
+// Close out speicfic transfer monitor
 func (tm *tmon) Close() error {
 	tm.flag.Set(trans_closed)
+	Log(tm.showTransfer(true))
 	return tm.source.Close()
 }
 
@@ -270,12 +266,12 @@ func (t *tmon) progressBar(n int) string {
 	sz := termWidth()
 
 	if !t.flag.Has(NoRate) {
-		sz = sz - 35 - len(t.short_name) - n
+		sz = sz - 40 - len(t.short_name) - n
 	} else {
-		sz = sz - 15 - len(t.short_name) - n
+		sz = sz - 20 - len(t.short_name) - n
 	}
 
-	if t.flag.Has(trans_complete) || t.flag.Has(trans_error) || sz <= 0 {
+	if t.flag.Has(trans_closed) || sz <= 0 {
 		sz = 10
 	}
 

@@ -159,7 +159,7 @@ func init() {
 			break
 		}
 
-		PleaseWait.Hide()
+		defer PleaseWait.Hide()
 
 		globalDefer.mutex.Lock()
 		defer globalDefer.mutex.Unlock()

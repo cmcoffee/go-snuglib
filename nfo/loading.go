@@ -2,7 +2,7 @@ package nfo
 
 import (
 	"fmt"
-	"github.com/cmcoffee/go-snuglib/bitflag"
+	"github.com/cmcoffee/go-snuglib/xsync"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,14 +12,13 @@ func init() {
 	PleaseWait = new(loading)
 	ProgressBar = new(progressBar)
 	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
-	Defer(func() { PleaseWait.Hide() })
 }
 
 // PleaseWait is a wait prompt to display between requests.
 var PleaseWait *loading
 
 type loading struct {
-	flag    bitflag.BitFlag
+	flag    xsync.BitFlag
 	message func() string
 	anim_1  []string
 	anim_2  []string

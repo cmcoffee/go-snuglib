@@ -1,4 +1,4 @@
-package bitflag
+package xsync
 
 import "sync/atomic"
 

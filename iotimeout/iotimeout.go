@@ -6,7 +6,7 @@ package iotimeout
 
 import (
 	"errors"
-	. "github.com/cmcoffee/go-snuglib/bitflag"
+	. "github.com/cmcoffee/go-snuglib/xsync"
 	"io"
 	"sync"
 	"time"
