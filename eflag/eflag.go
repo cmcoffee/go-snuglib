@@ -125,6 +125,8 @@ type EFlagSet struct {
 	out           io.Writer
 	errorHandling ErrorHandling
 	setFlags      []string
+	order         []string
+	AllowEmpty    bool
 	*flag.FlagSet
 }
 
@@ -137,6 +139,8 @@ var cmd = EFlagSet{
 	os.Stderr,
 	ExitOnError,
 	make([]string, 0),
+	make([]string, 0),
+	false,
 	flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
 }
 
@@ -196,6 +200,12 @@ func Usage() {
 	}
 }
 
+func (s *EFlagSet) Order(name ...string) {
+	if name != nil {
+		s.order = name[0:]
+	}
+}
+
 // Change where output will be directed.
 func (s *EFlagSet) SetOutput(output io.Writer) {
 	s.out = output
@@ -212,6 +222,8 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 		os.Stderr,
 		errorHandling,
 		make([]string, 0),
+		make([]string, 0),
+		false,
 		flag.NewFlagSet(name, flag.ContinueOnError),
 	}
 	output.Usage = func() {
@@ -223,9 +235,11 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 // Reads through all flags available and outputs with better formatting.
 func (s *EFlagSet) PrintDefaults() {
 
-	output := tabwriter.NewWriter(s.out, 34, 8, 1, ' ', 0)
+	output := tabwriter.NewWriter(s.out, 34, 8, 3, ' ', 0)
 
-	var bottom_text []string
+	flag_text := make(map[string]string)
+	var flag_order []string
+	var alias_order []string
 
 	s.VisitAll(func(flag *flag.Flag) {
 		if flag.Usage == "" {
@@ -264,13 +278,35 @@ func (s *EFlagSet) PrintDefaults() {
 		}
 		text = append(text, fmt.Sprintf("\t%s\n", flag.Usage))
 
-		if len(name) > 1 && alias == "" {
-			bottom_text = append(bottom_text, strings.Join(text[0:], ""))
+		if alias == "" {
+			flag_text[name] = strings.Join(text[0:], "")
+			flag_order = append(flag_order, name)
 		} else {
-			fmt.Fprintf(output, strings.Join(text[0:], ""))
+			flag_text[name] = strings.Join(text[0:], "")
+			alias_order = append(alias_order, name)
 		}
 	})
-	fmt.Fprintf(output, strings.Join(bottom_text[0:], ""))
+
+	// Place Aliases first.
+	flag_order = append(alias_order, flag_order[0:]...)
+
+	//OutterLoop:
+	for _, v := range flag_order {
+		for _, o := range s.order {
+			if o == v {
+				for _, name := range s.order {
+					txt, ok := flag_text[name]
+					if ok {
+						fmt.Fprintf(output, txt)
+						delete(flag_text, name)
+					}
+				}
+			}
+		}
+		if txt, ok := flag_text[v]; ok {
+			fmt.Fprintf(output, txt)
+		}
+	}
 	fmt.Fprintf(output, "  --help\tDisplays this usage information.\n")
 	output.Flush()
 }

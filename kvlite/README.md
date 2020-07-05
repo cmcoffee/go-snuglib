@@ -30,7 +30,7 @@ type Store interface {
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
 	CountKeys(table string) (count int, err error)
-	// ListKeys provides a listing of all keys in table.
+	// Keys provides a listing of all keys in table.
 	Keys(table string) (keys []string, err error)
 	// CryptSet encrypts the value within the key/value pair in table.
 	CryptSet(table, key string, value interface{}) (err error)
@@ -45,6 +45,7 @@ type Store interface {
 }
 ```
 
+Main Store Interface
 
 #### func  MemStore
 
@@ -70,5 +71,8 @@ type Table interface {
 	CryptSet(key string, value interface{}) (err error)
 	Get(key string, value interface{}) (found bool, err error)
 	Unset(key string) (err error)
+	Drop() (err error)
 }
 ```
+
+Table Interface follows the Main Store Interface, but directly to a table.

@@ -80,6 +80,7 @@ type EFlagSet struct {
 	Header string
 	Footer string
 
+	AllowEmpty bool
 	*flag.FlagSet
 }
 ```
@@ -118,6 +119,12 @@ Array variable, ie.. multiple --string=values
 
 ```go
 func (s *EFlagSet) IsSet(name string) bool
+```
+
+#### func (*EFlagSet) Order
+
+```go
+func (s *EFlagSet) Order(name ...string)
 ```
 
 #### func (*EFlagSet) Parse

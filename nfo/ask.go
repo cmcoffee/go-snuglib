@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
 	"os"
-	"os/signal"
 	"strings"
 	"syscall"
 )
@@ -14,21 +13,9 @@ import (
 var cancel = make(chan struct{})
 
 // Function to restore terminal on event we get an interuption.
-func getEscape() {
+func getEscape() func() {
 	s, _ := terminal.GetState(int(syscall.Stdin))
-	var signal_chan = make(chan os.Signal)
-	signal.Notify(signal_chan)
-	go func() {
-		BlockShutdown()
-		defer UnblockShutdown()
-		defer signal.Stop(signal_chan)
-		select {
-		case <-signal_chan:
-			terminal.Restore(0, s)
-		case <-cancel:
-			return
-		}
-	}()
+	return func() { terminal.Restore(0, s) }
 }
 
 // Loop until a non-blank answer is given
@@ -40,8 +27,8 @@ func NeedAnswer(prompt string, request func(prompt string) string) (output strin
 
 // Prompt to press enter.
 func PressEnter(prompt string) {
-	getEscape()
-	defer func() { cancel <- struct{}{} }()
+	unesc := Defer(getEscape())
+	defer unesc()
 
 	fmt.Printf("\r%s", prompt)
 
@@ -66,8 +53,8 @@ func GetInput(prompt string) string {
 
 // Get Hidden/Password input, without returning information to the screen.
 func GetSecret(prompt string) string {
-	getEscape()
-	defer func() { cancel <- struct{}{} }()
+	unesc := Defer(getEscape())
+	defer unesc()
 
 	fmt.Printf(prompt)
 	resp, _ := terminal.ReadPassword(int(syscall.Stdin))

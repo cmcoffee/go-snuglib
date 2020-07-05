@@ -9,6 +9,7 @@ import (
 	"github.com/boltdb/bolt"
 )
 
+// Main Store Interface
 type Store interface {
 	// Tables provides a list of all tables.
 	Tables() (tables []string, err error)
@@ -18,7 +19,7 @@ type Store interface {
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
 	CountKeys(table string) (count int, err error)
-	// ListKeys provides a listing of all keys in table.
+	// Keys provides a listing of all keys in table.
 	Keys(table string) (keys []string, err error)
 	// CryptSet encrypts the value within the key/value pair in table.
 	CryptSet(table, key string, value interface{}) (err error)
@@ -32,6 +33,7 @@ type Store interface {
 	Close() (err error)
 }
 
+// Table Interface follows the Main Store Interface, but directly to a table.
 type Table interface {
 	Keys() (keys []string, err error)
 	CountKeys() (count int, err error)
@@ -39,6 +41,7 @@ type Table interface {
 	CryptSet(key string, value interface{}) (err error)
 	Get(key string, value interface{}) (found bool, err error)
 	Unset(key string) (err error)
+	Drop() (err error)
 }
 
 type focused struct {
@@ -68,6 +71,10 @@ func (s focused) CryptSet(key string, value interface{}) (err error) {
 
 func (s focused) Unset(key string) (err error) {
 	return s.store.Unset(s.table, key)
+}
+
+func (s focused) Drop() (err error) {
+	return s.store.Drop(s.table)
 }
 
 // Bolt Backend

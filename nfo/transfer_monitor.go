@@ -171,8 +171,18 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 // Close out speicfic transfer monitor
 func (tm *tmon) Close() error {
 	tm.flag.Set(trans_closed)
-	Log(tm.showTransfer(true))
+	if !tm.flag.Has(NoRate) {
+		Log(tm.showTransfer(true))
+	}
 	return tm.source.Close()
+}
+
+func spacePrint(min int, input string) string {
+	output := make([]rune, min)
+	for i := 0; i < len(output); i++ {
+		output[i] = ' '
+	}
+	return string(append(output[len(input)-1:], []rune(input)[0:]...))
 }
 
 // Transfer Monitor
@@ -206,12 +216,12 @@ func (t *tmon) showTransfer(summary bool) string {
 	// 35 + 8 +8 + 8 + 8
 	if t.total_size > -1 {
 		if !t.flag.Has(NoRate) {
-			return fmt.Sprintf("%s: %s %s (%s/%s)", name, rate, t.progressBar(len(rate)), HumanSize(transfered), HumanSize(t.total_size))
+			return fmt.Sprintf("%s", t.progressBar2(name, rate, HumanSize(transfered), HumanSize(t.total_size)))
 		} else {
-			return fmt.Sprintf("%s: %s", name, t.progressBar(0))
+			return fmt.Sprintf("%s: %s ", name, t.progressBar(0))
 		}
 	} else {
-		return fmt.Sprintf("%s: %s (%s)", t.name, rate, HumanSize(transfered))
+		return fmt.Sprintf("%s: %s (%s) ", t.name, rate, HumanSize(transfered))
 	}
 }
 
@@ -253,8 +263,11 @@ func (t *tmon) showRate() string {
 	if !t.flag.Has(trans_complete) && atomic.LoadInt64(&t.transfered)+t.offset == t.total_size {
 		t.flag.Set(trans_complete)
 	}
-
-	return t.rate
+	if !t.flag.Has(trans_closed) {
+		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(t.rate)-1:], []rune(t.rate)[0:]...))
+	} else {
+		return t.rate
+	}
 }
 
 // Produces progress bar for information on update.
@@ -263,10 +276,11 @@ func (t *tmon) progressBar(n int) string {
 	if t.total_size == 0 {
 		num = 100
 	}
+
 	sz := termWidth()
 
 	if !t.flag.Has(NoRate) {
-		sz = sz - 40 - len(t.short_name) - n
+		sz = sz - 50 - len(t.short_name) - n
 	} else {
 		sz = sz - 20 - len(t.short_name) - n
 	}
@@ -319,6 +333,83 @@ func (t *tmon) progressBar(n int) string {
 			}
 		}
 		return fmt.Sprintf("%d%% [%s]", int(num), string(display[0:]))
+	}
+}
+
+// Produces progress bar for information on update.
+func (t *tmon) progressBar2(name, rate, transfered, total string) string {
+	num := int((float64(atomic.LoadInt64(&t.transfered)) / float64(t.total_size)) * 100)
+
+	if t.total_size == 0 {
+		num = 100
+	}
+
+	sz := termWidth()
+
+	var first_half, second_half string
+
+	if !t.flag.Has(NoRate) {
+		first_half = fmt.Sprintf("%s: %s", name, rate)
+		second_half = fmt.Sprintf("(%s/%s)", transfered, total)
+	} else {
+		first_half = name
+		second_half = ""
+	}
+
+	sz = sz - len(first_half) - 25
+
+	if t.flag.Has(NoRate) {
+		sz = sz + 20
+	}
+
+	if t.flag.Has(trans_closed) || sz <= 0 {
+		sz = 10
+	}
+
+	display := make([]rune, sz-10)
+	x := num * sz / 100
+
+	if !t.flag.Has(NoRate) {
+		if t.flag.Has(LeftToRight) {
+			for n := range display {
+				if n < x {
+					if n+1 < x {
+						display[n] = '='
+					} else {
+						display[n] = '>'
+					}
+				} else {
+					display[n] = ' '
+				}
+			}
+		} else {
+			x = sz - x - 1
+			for n := range display {
+				if n > x {
+					if n-1 > x {
+						display[n] = '='
+					} else {
+						display[n] = '<'
+					}
+				} else {
+					display[n] = ' '
+				}
+			}
+		}
+	} else {
+		for n := range display {
+			if n < x {
+				display[n] = '░'
+			} else {
+				display[n] = '.'
+			}
+		}
+	}
+
+	if sz > 10 {
+		return fmt.Sprintf("%s [%s] %d%% %s ", first_half, string(display[0:]), int(num), second_half)
+	} else {
+		return fmt.Sprintf("%s %d%% %s", first_half, int(num), second_half)
 	}
 }
 

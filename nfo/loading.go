@@ -96,12 +96,13 @@ func (L *loading) Hide() {
 }
 
 type progressBar struct {
-	mutex   sync.Mutex
-	cur     int32
-	max     int32
-	working bool
-	name    string
-	backup  *loading_backup
+	mutex    sync.Mutex
+	cur      int32
+	max      int32
+	working  bool
+	name     string
+	anim_len int
+	backup   *loading_backup
 }
 
 var ProgressBar *progressBar
@@ -114,7 +115,10 @@ func (p *progressBar) draw() string {
 		num = int((float64(atomic.LoadInt32(&p.cur)) / float64(atomic.LoadInt32(&p.max))) * 100)
 	}
 
-	sz := termWidth() - len(p.name) - 42
+	message := fmt.Sprintf("Please wait ... (%d/%d %s)", p.cur, p.max, p.name)
+
+	sz := termWidth() - len(message) - p.anim_len - 12
+
 	if sz > 10 {
 		display := make([]rune, sz)
 		x := num * sz / 100
@@ -125,14 +129,14 @@ func (p *progressBar) draw() string {
 				display[n] = '.'
 			}
 		}
-		return fmt.Sprintf("(%s) %d%%", string(display[0:]), int(num))
+		return fmt.Sprintf("%s [%s] %d%%", message, string(display[0:]), int(num))
 	} else {
-		return fmt.Sprintf("%d%%", int(num))
+		return fmt.Sprintf("%s %d%%", message, int(num))
 	}
 }
 
 func (p *progressBar) updateMessage() string {
-	return fmt.Sprintf("Please wait ... [%d/%d %s] %s", p.cur, p.max, p.name, p.draw())
+	return p.draw()
 }
 
 // Updates loading to be a progress bar.
@@ -149,6 +153,7 @@ func (p *progressBar) New(name string, max int) {
 	p.name = name
 	p.backup = PleaseWait.Backup()
 	PleaseWait.Set(p.updateMessage, PleaseWait.anim_1)
+	p.anim_len = len(PleaseWait.anim_1)
 	p.working = true
 }
 

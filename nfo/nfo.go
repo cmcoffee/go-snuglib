@@ -15,7 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode/utf8"
 )
 
 import . "itoa"
@@ -55,7 +54,6 @@ const (
 var (
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
-	flush_len          int
 	flush_line         []rune
 	flush_needed       bool
 	piped_stdout       bool
@@ -453,7 +451,7 @@ func write2log(flag uint32, vars ...interface{}) {
 
 	output := msgBuffer.Bytes()
 	output = append(pre, output[0:]...)
-	bufferLen := utf8.RuneCount(output)
+	bufferLen := len(output)
 
 	if bufferLen > 0 {
 		if output[len(output)-1] != '\n' && flag&_flash_txt != _flash_txt {
@@ -467,21 +465,17 @@ func write2log(flag uint32, vars ...interface{}) {
 
 	// Clear out last flash text.
 	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
-		if bufferLen == 0 {
-			fmt.Fprintf(os.Stderr, "\r%s  \r", string(flush_line[0:flush_len]))
-		} else {
-			fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:flush_len]))
+		width := termWidth()
+		for i := len(flush_line); i <= width+10; i++ {
+			flush_line = append(flush_line[0:], ' ')
 		}
+		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
 		flush_needed = false
 	}
 
 	// Flash text handler, make a line of text available to remove remnents of this text.
 	if flag&_flash_txt != 0 {
 		if !piped_stderr {
-			for i := len(flush_line); i < bufferLen; i++ {
-				flush_line = append(flush_line[0:], ' ')
-			}
-			flush_len = bufferLen
 			io.Copy(os.Stderr, bytes.NewReader(output))
 			flush_needed = true
 			return
