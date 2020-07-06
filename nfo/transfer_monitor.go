@@ -281,7 +281,12 @@ func (t *tmon) showRate() string {
 
 // Draws a progress bar using sz as the size.
 func DrawProgressBar(sz int, current, max int64, text string) string {
-	num := int(float64(current) / float64(max) * 100)
+	var num int
+	if max > 0 {
+		num = int(float64(current) / float64(max) * 100)
+	} else {
+		num = 0
+	}
 
 	display := make([]rune, sz)
 	x := num * sz / 100
