@@ -313,13 +313,13 @@ func (t *tmon) progressBar(name string) string {
 	first_half := fmt.Sprintf("%s: %s", name, t.showRate())
 	second_half := fmt.Sprintf("(%s/%s)", HumanSize(t.transfered), HumanSize(t.total_size))
 
-	sz = sz - len(first_half) - 25
+	sz = sz - len(first_half) - 35
 
 	if t.flag.Has(trans_closed) && !t.flag.Has(NoRate) || sz <= 0 {
 		sz = 10
 	}
 
-	display := make([]rune, sz-10)
+	display := make([]rune, sz)
 	x := num * sz / 100
 
 	if t.flag.Has(LeftToRight) {
