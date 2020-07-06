@@ -121,6 +121,13 @@ func DisableExport(flag uint32)
 ```
 Specific which logger to not export.
 
+#### func  DrawProgressBar
+
+```go
+func DrawProgressBar(sz int, current, max int64, text string) string
+```
+Draws a progress bar using sz as the size.
+
 #### func  EnableExport
 
 ```go

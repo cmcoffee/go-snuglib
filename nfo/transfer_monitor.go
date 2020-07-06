@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/cmcoffee/go-snuglib/xsync"
 	"golang.org/x/crypto/ssh/terminal"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -44,12 +45,24 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 	transferDisplay.update_lock.Lock()
 	defer transferDisplay.update_lock.Unlock()
 
-	var short_name []rune
+	var (
+		short_name  []rune
+		target_size int
+	)
 
-	target_size := 17
+	b_flag := BitFlag(flag)
+	if b_flag.Has(LeftToRight) || b_flag <= 0 {
+		b_flag.Set(LeftToRight)
+	}
+
+	if !b_flag.Has(NoRate) {
+		target_size = 18
+	} else {
+		target_size = 36
+	}
 
 	for i, v := range name {
-		if i <= target_size {
+		if i < target_size {
 			short_name = append(short_name, v)
 		} else {
 			short_name = append(short_name, []rune("..")[0:]...)
@@ -60,16 +73,12 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 	if len(short_name) < target_size {
 		x := len(short_name) - 1
 		var y []rune
-		for i := 0; i < target_size+2-x; i++ {
+		for i := 0; i <= target_size-x; i++ {
 			y = append(y, ' ')
 		}
 		short_name = append(y[0:], short_name[0:]...)
 	}
 
-	b_flag := BitFlag(flag)
-	if b_flag.Has(LeftToRight) || b_flag <= 0 {
-		b_flag.Set(LeftToRight)
-	}
 	b_flag.Set(trans_active)
 
 	tm := &tmon{
@@ -216,9 +225,9 @@ func (t *tmon) showTransfer(summary bool) string {
 	// 35 + 8 +8 + 8 + 8
 	if t.total_size > -1 {
 		if !t.flag.Has(NoRate) {
-			return fmt.Sprintf("%s", t.progressBar2(name, rate, HumanSize(transfered), HumanSize(t.total_size)))
+			return fmt.Sprintf("%s", t.progressBar(name))
 		} else {
-			return fmt.Sprintf("%s: %s ", name, t.progressBar(0))
+			return DrawProgressBar(19, t.transfered, t.total_size, t.name)
 		}
 	} else {
 		return fmt.Sprintf("%s: %s (%s) ", t.name, rate, HumanSize(transfered))
@@ -264,80 +273,35 @@ func (t *tmon) showRate() string {
 		t.flag.Set(trans_complete)
 	}
 	if !t.flag.Has(trans_closed) {
-		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(t.rate)-1:], []rune(t.rate)[0:]...))
+		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(t.rate)-1:], []rune(t.rate)[0:]...))
 	} else {
 		return t.rate
 	}
 }
 
-// Produces progress bar for information on update.
-func (t *tmon) progressBar(n int) string {
-	num := int((float64(atomic.LoadInt64(&t.transfered)) / float64(t.total_size)) * 100)
-	if t.total_size == 0 {
-		num = 100
-	}
-
-	sz := termWidth()
-
-	if !t.flag.Has(NoRate) {
-		sz = sz - 50 - len(t.short_name) - n
-	} else {
-		sz = sz - 20 - len(t.short_name) - n
-	}
-
-	if t.flag.Has(trans_closed) || sz <= 0 {
-		sz = 10
-	}
+// Draws a progress bar using sz as the size.
+func DrawProgressBar(sz int, current, max int64, text string) string {
+	num := int(float64(current) / float64(max) * 100)
 
 	display := make([]rune, sz)
 	x := num * sz / 100
 
-	if !t.flag.Has(NoRate) {
-		if sz > 10 {
-			if t.flag.Has(LeftToRight) {
-				for n := range display {
-					if n < x {
-						if n+1 < x {
-							display[n] = '='
-						} else {
-							display[n] = '>'
-						}
-					} else {
-						display[n] = ' '
-					}
-				}
-			} else {
-				x = sz - x - 1
-				for n := range display {
-					if n > x {
-						if n-1 > x {
-							display[n] = '='
-						} else {
-							display[n] = '<'
-						}
-					} else {
-						display[n] = ' '
-					}
-				}
-			}
-			return fmt.Sprintf("[%s] %d%%", string(display[0:]), int(num))
+	for n := range display {
+		if n < x {
+			display[n] = '░'
 		} else {
-			return fmt.Sprintf("%d%%", int(num))
+			display[n] = '.'
 		}
-	} else {
-		for n := range display {
-			if n < x {
-				display[n] = '░'
-			} else {
-				display[n] = '.'
-			}
-		}
-		return fmt.Sprintf("%d%% [%s]", int(num), string(display[0:]))
 	}
+
+	perc := strconv.Itoa(num)
+
+	return fmt.Sprintf("[%s]%s%%: %s", string(display[0:]), string(append([]rune{' ', ' ', ' '}[len(perc)-1:], []rune(perc)[0:]...)), text)
+
 }
 
 // Produces progress bar for information on update.
-func (t *tmon) progressBar2(name, rate, transfered, total string) string {
+func (t *tmon) progressBar(name string) string {
 	num := int((float64(atomic.LoadInt64(&t.transfered)) / float64(t.total_size)) * 100)
 
 	if t.total_size == 0 {
@@ -346,62 +310,41 @@ func (t *tmon) progressBar2(name, rate, transfered, total string) string {
 
 	sz := termWidth()
 
-	var first_half, second_half string
-
-	if !t.flag.Has(NoRate) {
-		first_half = fmt.Sprintf("%s: %s", name, rate)
-		second_half = fmt.Sprintf("(%s/%s)", transfered, total)
-	} else {
-		first_half = name
-		second_half = ""
-	}
+	first_half := fmt.Sprintf("%s: %s", name, t.showRate())
+	second_half := fmt.Sprintf("(%s/%s)", HumanSize(t.transfered), HumanSize(t.total_size))
 
 	sz = sz - len(first_half) - 25
 
-	if t.flag.Has(NoRate) {
-		sz = sz + 20
-	}
-
-	if t.flag.Has(trans_closed) || sz <= 0 {
+	if t.flag.Has(trans_closed) && !t.flag.Has(NoRate) || sz <= 0 {
 		sz = 10
 	}
 
 	display := make([]rune, sz-10)
 	x := num * sz / 100
 
-	if !t.flag.Has(NoRate) {
-		if t.flag.Has(LeftToRight) {
-			for n := range display {
-				if n < x {
-					if n+1 < x {
-						display[n] = '='
-					} else {
-						display[n] = '>'
-					}
+	if t.flag.Has(LeftToRight) {
+		for n := range display {
+			if n < x {
+				if n+1 < x {
+					display[n] = '='
 				} else {
-					display[n] = ' '
+					display[n] = '>'
 				}
-			}
-		} else {
-			x = sz - x - 1
-			for n := range display {
-				if n > x {
-					if n-1 > x {
-						display[n] = '='
-					} else {
-						display[n] = '<'
-					}
-				} else {
-					display[n] = ' '
-				}
+			} else {
+				display[n] = ' '
 			}
 		}
 	} else {
+		x = sz - x - 1
 		for n := range display {
-			if n < x {
-				display[n] = '░'
+			if n > x {
+				if n-1 > x {
+					display[n] = '='
+				} else {
+					display[n] = '<'
+				}
 			} else {
-				display[n] = '.'
+				display[n] = ' '
 			}
 		}
 	}
