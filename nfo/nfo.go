@@ -18,8 +18,6 @@ import (
 	"unicode/utf8"
 )
 
-import . "itoa"
-
 const (
 	INFO   = 1 << iota // Log Information
 	ERROR              // Log Errors

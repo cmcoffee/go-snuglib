@@ -69,10 +69,9 @@ func (L *loading) Set(message func() string, loader ...[]string) {
 	L.message = message
 	L.anim_1 = anim_1
 	L.anim_2 = anim_2
-	atomic.AddInt32(&L.counter, 1)
+	count := atomic.AddInt32(&L.counter, 1)
 
-	go func(message func() string, anim_1 []string, anim_2 []string) {
-		count := atomic.LoadInt32(&L.counter)
+	go func(message func() string, anim_1 []string, anim_2 []string, count int32) {
 		for count == atomic.LoadInt32(&L.counter) {
 			for i, str := range anim_1 {
 				if L.flag.Has(loading_show) && count == atomic.LoadInt32(&L.counter) {
@@ -81,7 +80,7 @@ func (L *loading) Set(message func() string, loader ...[]string) {
 				time.Sleep(125 * time.Millisecond)
 			}
 		}
-	}(message, anim_1, anim_2)
+	}(message, anim_1, anim_2, count)
 }
 
 // Displays loader. "[>>>] Working, Please wait."
@@ -92,7 +91,6 @@ func (L *loading) Show() {
 // Hides display loader.
 func (L *loading) Hide() {
 	L.flag.Unset(loading_show)
-	Flash("")
 }
 
 type progressBar struct {

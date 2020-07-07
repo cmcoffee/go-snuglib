@@ -133,8 +133,6 @@ func init() {
 		for {
 			s := <-signalChan
 
-			write2log(_no_logging | _flash_txt | _bypass_lock)
-
 			mutex.Lock()
 			cb := callbacks[s]
 			mutex.Unlock()
@@ -159,8 +157,6 @@ func init() {
 			break
 		}
 
-		defer PleaseWait.Hide()
-
 		globalDefer.mutex.Lock()
 		defer globalDefer.mutex.Unlock()
 
@@ -176,6 +172,12 @@ func init() {
 
 		// Wait on any process that have access to wait.
 		wait.Wait()
+
+		// Hide Please Wait
+		PleaseWait.Hide()
+
+		// Try to flush out any remaining text.
+		write2log(_flash_txt|_no_logging|_bypass_lock, "")
 
 		// Finally exit the application
 		select {
