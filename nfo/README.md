@@ -222,6 +222,14 @@ func HumanSize(bytes int64) string
 ```
 Provides human readable file sizes.
 
+#### func  Itoa
+
+```go
+func Itoa(buf *[]byte, i int, wid int)
+```
+Cheap integer to fixed-width decimal ASCII. Give a negative width to avoid
+zero-padding.
+
 #### func  LTZ
 
 ```go
@@ -373,6 +381,14 @@ type ReadSeekCloser interface {
 }
 ```
 
+
+#### func  TransferCounter
+
+```go
+func TransferCounter(input ReadSeekCloser, counter func(int)) ReadSeekCloser
+```
+TransferCounter allows you to add a counter callback function to add bytes added
+during read.
 
 #### func  TransferMonitor
 

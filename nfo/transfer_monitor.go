@@ -39,6 +39,25 @@ const (
 	trans_error
 )
 
+type readSeekCounter struct {
+	counter func(int)
+	ReadSeekCloser
+}
+
+func (r readSeekCounter) Read(p []byte) (n int, err error) {
+	n, err = r.ReadSeekCloser.Read(p)
+	r.counter(n)
+	return
+}
+
+// TransferCounter allows you to add a counter callback function to add bytes added during read.
+func TransferCounter(input ReadSeekCloser, counter func(int)) ReadSeekCloser {
+	return readSeekCounter{
+		counter,
+		input,
+	}
+}
+
 // Add Transfer to transferDisplay.
 // Parameters are "name" displayed for file transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and "total_sz" the total size of the transfer.
 func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser) ReadSeekCloser {
