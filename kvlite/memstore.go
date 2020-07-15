@@ -24,9 +24,6 @@ func (K *memStore) Keys(table string) (keys []string, err error) {
 			keys = append(keys, k)
 		}
 	}
-	if keys == nil {
-		keys = append(keys, "")
-	}
 	return keys, nil
 }
 

@@ -320,7 +320,7 @@ func DrawProgressBar(sz int, current, max int64, text string) string {
 
 	perc := strconv.Itoa(num)
 
-	return fmt.Sprintf("[%s]%s%%: %s", string(display[0:]), string(append([]rune{' ', ' ', ' '}[len(perc)-1:], []rune(perc)[0:]...)), text)
+	return fmt.Sprintf("[%s]%s%%: %s", string(display[0:]), string(append([]rune{' ', ' '}[len(perc)-1:], []rune(perc)[0:]...)), text)
 
 }
 

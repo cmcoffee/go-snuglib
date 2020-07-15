@@ -174,9 +174,6 @@ func (K *boltDB) Keys(table string) (keys []string, err error) {
 		}
 		return bucket.ForEach(add_key)
 	})
-	if keys == nil {
-		keys = append(keys, "")
-	}
 	return keys, err
 }
 
