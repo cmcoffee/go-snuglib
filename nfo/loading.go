@@ -9,13 +9,11 @@ import (
 )
 
 func init() {
-	PleaseWait = new(loading)
-	ProgressBar = new(progressBar)
 	PleaseWait.Set(func() string { return "Please wait ..." }, []string{"[>  ]", "[>> ]", "[>>>]", "[ >>]", "[  >]", "[  <]", "[ <<]", "[<<<]", "[<< ]", "[<  ]"})
 }
 
 // PleaseWait is a wait prompt to display between requests.
-var PleaseWait *loading
+var PleaseWait = new(loading)
 
 type loading struct {
 	flag    xsync.BitFlag
@@ -91,6 +89,7 @@ func (L *loading) Show() {
 // Hides display loader.
 func (L *loading) Hide() {
 	L.flag.Unset(loading_show)
+	Flash("")
 }
 
 type progressBar struct {
@@ -103,7 +102,7 @@ type progressBar struct {
 	backup   *loading_backup
 }
 
-var ProgressBar *progressBar
+var ProgressBar = new(progressBar)
 
 // Produces progress bar for information on update.
 func (p *progressBar) draw() string {

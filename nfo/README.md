@@ -54,12 +54,12 @@ var None dummyWriter
 False writer for discarding output.
 
 ```go
-var PleaseWait *loading
+var PleaseWait = new(loading)
 ```
 PleaseWait is a wait prompt to display between requests.
 
 ```go
-var ProgressBar *progressBar
+var ProgressBar = new(progressBar)
 ```
 
 #### func  Aux
@@ -381,6 +381,7 @@ type ReadSeekCloser interface {
 }
 ```
 
+ReadSeekCloser interface
 
 #### func  TransferCounter
 

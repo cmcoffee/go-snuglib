@@ -235,7 +235,7 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 // Reads through all flags available and outputs with better formatting.
 func (s *EFlagSet) PrintDefaults() {
 
-	output := tabwriter.NewWriter(s.out, 34, 8, 3, ' ', 0)
+	output := tabwriter.NewWriter(s.out, 1, 1, 3, ' ', 0)
 
 	flag_text := make(map[string]string)
 	var flag_order []string
@@ -277,6 +277,9 @@ func (s *EFlagSet) PrintDefaults() {
 			}
 		}
 		text = append(text, fmt.Sprintf("\t%s\n", flag.Usage))
+		if _, ok := flag.Value.(*arrayValue); ok {
+			text = append(text, fmt.Sprintf("\t \\_ use seperate --%s flags for multi-%s...\n", name, name))
+		}
 
 		if alias == "" {
 			flag_text[name] = strings.Join(text[0:], "")
@@ -309,6 +312,15 @@ func (s *EFlagSet) PrintDefaults() {
 	}
 	fmt.Fprintf(output, "  --help\tDisplays this usage information.\n")
 	output.Flush()
+}
+
+type ArrayValue struct {
+	is_array_var bool
+	flag.Value
+}
+
+func (v ArrayValue) IsArray() bool {
+	return true
 }
 
 // Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.

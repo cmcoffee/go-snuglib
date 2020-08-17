@@ -20,6 +20,7 @@ Atomic BitFlag
 ```go
 func (B *BitFlag) Has(flag uint32) bool
 ```
+Check if flag is set
 
 #### func (*BitFlag) Set
 
@@ -48,6 +49,7 @@ Atomic BitFlag
 ```go
 func (B *BitFlag64) Has(flag uint64) bool
 ```
+Check if flag is set
 
 #### func (*BitFlag64) Set
 

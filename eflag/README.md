@@ -73,6 +73,21 @@ func Parse() (err error)
 func Usage()
 ```
 
+#### type ArrayValue
+
+```go
+type ArrayValue struct {
+	flag.Value
+}
+```
+
+
+#### func (ArrayValue) IsArray
+
+```go
+func (v ArrayValue) IsArray() bool
+```
+
 #### type EFlagSet
 
 ```go

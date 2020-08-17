@@ -5,6 +5,7 @@ import "sync/atomic"
 // Atomic BitFlag
 type BitFlag uint32
 
+// Check if flag is set
 func (B *BitFlag) Has(flag uint32) bool {
 	if atomic.LoadUint32((*uint32)(B))&uint32(flag) != 0 {
 		return true
@@ -25,6 +26,7 @@ func (B *BitFlag) Unset(flag uint32) {
 // Atomic BitFlag
 type BitFlag64 uint64
 
+// Check if flag is set
 func (B *BitFlag64) Has(flag uint64) bool {
 	if atomic.LoadUint64((*uint64)(B))&uint64(flag) != 0 {
 		return true

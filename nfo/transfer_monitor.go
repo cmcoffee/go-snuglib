@@ -18,6 +18,7 @@ var transferDisplay struct {
 	monitors    []*tmon
 }
 
+// ReadSeekCloser interface
 type ReadSeekCloser interface {
 	Seek(offset int64, whence int) (int64, error)
 	Read(p []byte) (n int, err error)
@@ -285,7 +286,11 @@ func (t *tmon) showRate() string {
 	if sz != 0.0 {
 		t.rate = fmt.Sprintf("%.1f%s", sz, names[suffix])
 	} else {
-		t.rate = "0.0bps"
+		if t.flag.Has(trans_active) {
+			t.rate = "0.0bps"
+		} else {
+			t.rate = "\b"
+		}
 	}
 
 	if !t.flag.Has(trans_complete) && atomic.LoadInt64(&t.transfered)+t.offset == t.total_size {
