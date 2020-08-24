@@ -92,10 +92,10 @@ func (v ArrayValue) IsArray() bool
 
 ```go
 type EFlagSet struct {
-	Header string
-	Footer string
+	Header    string // Header presented at start of help.
+	Footer    string // Footer presented at end of help.
+	AdaptArgs bool   // Reorders flags and arguments so flags come first, non-flag arguments second, unescapes arguments with '\' escape character.
 
-	AllowEmpty bool
 	*flag.FlagSet
 }
 ```
@@ -115,6 +115,12 @@ func (s *EFlagSet) Alias(name string, alias string)
 ```
 Adds an alias to an existing flag, requires a pointer to the variable, the
 current name and the new alias name.
+
+#### func (*EFlagSet) Args
+
+```go
+func (s *EFlagSet) Args() []string
+```
 
 #### func (*EFlagSet) Array
 
@@ -155,6 +161,13 @@ Wraps around the standard flag Parse, adds header and footer.
 func (s *EFlagSet) PrintDefaults()
 ```
 Reads through all flags available and outputs with better formatting.
+
+#### func (*EFlagSet) ResolveAlias
+
+```go
+func (s *EFlagSet) ResolveAlias(name string) string
+```
+Resolves Alias name to fullname
 
 #### func (*EFlagSet) SetOutput
 
@@ -204,4 +217,10 @@ const (
 	PanicOnError
 	ReturnErrorOnly
 )
+```
+
+#### type Flag
+
+```go
+type Flag = flag.Flag
 ```

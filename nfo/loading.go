@@ -89,6 +89,7 @@ func (L *loading) Show() {
 // Hides display loader.
 func (L *loading) Hide() {
 	L.flag.Unset(loading_show)
+	time.Sleep(time.Millisecond)
 	Flash("")
 }
 

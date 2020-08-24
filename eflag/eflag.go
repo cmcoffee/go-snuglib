@@ -26,6 +26,8 @@ const (
 
 var ErrHelp = flag.ErrHelp
 
+type Flag = flag.Flag
+
 // Write to nothing, to remove standard output of flag.
 type _voidText struct{}
 
@@ -118,15 +120,15 @@ func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage stri
 
 type EFlagSet struct {
 	name          string
-	Header        string
-	Footer        string
+	Header        string // Header presented at start of help.
+	Footer        string // Footer presented at end of help.
+	AdaptArgs     bool   // Reorders flags and arguments so flags come first, non-flag arguments second, unescapes arguments with '\' escape character.
 	alias         map[string]string
 	stringVars    map[string]bool
 	out           io.Writer
 	errorHandling ErrorHandling
 	setFlags      []string
 	order         []string
-	AllowEmpty    bool
 	*flag.FlagSet
 }
 
@@ -134,13 +136,13 @@ var cmd = EFlagSet{
 	os.Args[0],
 	"",
 	"",
+	false,
 	make(map[string]string),
 	make(map[string]bool),
 	os.Stderr,
 	ExitOnError,
 	make([]string, 0),
 	make([]string, 0),
-	false,
 	flag.NewFlagSet(os.Args[0], flag.ContinueOnError),
 }
 
@@ -206,6 +208,18 @@ func (s *EFlagSet) Order(name ...string) {
 	}
 }
 
+func (s *EFlagSet) Args() []string {
+	args := s.FlagSet.Args()
+	if s.AdaptArgs {
+		for i, v := range args {
+			if strings.HasPrefix(v, "\\-") {
+				args[i] = strings.TrimPrefix(v, "\\")
+			}
+		}
+	}
+	return args
+}
+
 // Change where output will be directed.
 func (s *EFlagSet) SetOutput(output io.Writer) {
 	s.out = output
@@ -217,13 +231,13 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 		name,
 		"",
 		"",
+		false,
 		make(map[string]string),
 		make(map[string]bool),
 		os.Stderr,
 		errorHandling,
 		make([]string, 0),
 		make([]string, 0),
-		false,
 		flag.NewFlagSet(name, flag.ContinueOnError),
 	}
 	output.Usage = func() {
@@ -331,6 +345,18 @@ func (s *EFlagSet) Alias(name string, alias string) {
 	}
 	s.Var(flag.Value, alias, "")
 	s.alias[name] = alias
+
+	// Create reverse lookup
+	s.alias[fmt.Sprintf("-%s-", alias)] = name
+}
+
+// Resolves Alias name to fullname
+func (s *EFlagSet) ResolveAlias(name string) string {
+	if v, ok := s.alias[fmt.Sprintf("-%s-", name)]; ok {
+		return v
+	} else {
+		return name
+	}
 }
 
 func (s *EFlagSet) IsSet(name string) bool {
@@ -347,27 +373,43 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	// set usage to empty to prevent unessisary work as we dump the output of flag.
 	s.Usage = func() {}
 
+	var (
+		tmp      []string
+		trailing []string
+	)
+
 	// Split bool flags so that '-abc' becomes '-a -b -c' before being parsed.
-	for i, a := range args {
+	for _, a := range args {
 		if !strings.HasPrefix(a, "-") {
+			if !s.AdaptArgs {
+				tmp = append(tmp, a)
+			} else {
+				trailing = append(trailing, a)
+			}
 			continue
 		}
 		if strings.HasPrefix(a, "--") {
+			tmp = append(tmp, a)
 			continue
 		}
 		if strings.Contains(a, "=") {
+			tmp = append(tmp, a)
 			continue
 		}
 		a = strings.TrimPrefix(a, "-")
 		if len(a) == 0 {
 			continue
+
 		}
-		args[i] = fmt.Sprintf("-%c", a[0])
+		tmp = append(tmp, fmt.Sprintf("-%c", a[0]))
 		for _, ch := range a[1:] {
-			args = append(args[0:], "")
-			copy(args[1:], args[0:])
-			args[0] = fmt.Sprintf("-%c", ch)
+			tmp = append(tmp, fmt.Sprintf("-%c", ch))
 		}
+	}
+
+	args = tmp[0:]
+	if s.AdaptArgs {
+		args = append(args, trailing[0:]...)
 	}
 
 	// Remove normal error message printing.
