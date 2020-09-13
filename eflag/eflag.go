@@ -444,7 +444,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 			fmt.Fprintf(s.out, "%s\n", s.Header)
 		}
 		if s.name == "" {
-			fmt.Fprintf(s.out, "Available options:\n")
+			fmt.Fprintf(s.out, "Options:\n")
 		} else {
 			if s.name == os.Args[0] {
 				fmt.Fprintf(s.out, "Available '%s' options:\n", os.Args[0])
