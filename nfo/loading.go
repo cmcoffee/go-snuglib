@@ -32,6 +32,7 @@ type loading_backup struct {
 
 const (
 	loading_show = 1 << iota
+	transfer_monitor_active
 )
 
 func (B *loading_backup) Restore() {
@@ -72,7 +73,7 @@ func (L *loading) Set(message func() string, loader ...[]string) {
 	go func(message func() string, anim_1 []string, anim_2 []string, count int32) {
 		for count == atomic.LoadInt32(&L.counter) {
 			for i, str := range anim_1 {
-				if L.flag.Has(loading_show) && count == atomic.LoadInt32(&L.counter) {
+				if L.flag.Has(loading_show) && !L.flag.Has(transfer_monitor_active) && count == atomic.LoadInt32(&L.counter) {
 					Flash("%s %s %s", str, message(), anim_2[i])
 				}
 				time.Sleep(125 * time.Millisecond)

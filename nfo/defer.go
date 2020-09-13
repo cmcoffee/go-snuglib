@@ -161,11 +161,8 @@ func init() {
 		defer globalDefer.mutex.Unlock()
 
 		// Run through all globalDefer functions.
-		for _, id := range globalDefer.ids {
-			/*if _, ok := globalDefer.d_map[id]; !ok {
-				continue
-			}*/
-			if err := globalDefer.d_map[id](); err != nil {
+		for i := len(globalDefer.ids) - 1; i > 0; i-- {
+			if err := globalDefer.d_map[globalDefer.ids[i]](); err != nil {
 				write2log(ERROR|_bypass_lock, err.Error())
 			}
 		}

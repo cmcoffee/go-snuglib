@@ -128,7 +128,7 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 	transferDisplay.monitors = append(transferDisplay.monitors, tm)
 
 	if len(transferDisplay.monitors) == 1 {
-		PleaseWait.Hide()
+		PleaseWait.flag.Set(transfer_monitor_active)
 		transferDisplay.display = 1
 
 		go func() {
@@ -148,7 +148,7 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 				}
 
 				if len(transferDisplay.monitors) == 0 {
-					PleaseWait.Show()
+					PleaseWait.flag.Unset(transfer_monitor_active)
 					return
 				}
 
