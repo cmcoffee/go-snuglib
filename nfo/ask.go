@@ -2,10 +2,8 @@
 package nfo
 
 import (
-	"bufio"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
 	"strings"
 	"syscall"
 )
@@ -15,7 +13,7 @@ var cancel = make(chan struct{})
 // Function to restore terminal on event we get an interuption.
 func getEscape() func() {
 	s, _ := terminal.GetState(int(syscall.Stdin))
-	return func() { terminal.Restore(0, s) }
+	return func() { terminal.Restore(int(syscall.Stdin), s) }
 }
 
 // Loop until a non-blank answer is given
@@ -36,19 +34,8 @@ func PressEnter(prompt string) {
 	for _ = range prompt {
 		blank_line = append(blank_line, ' ')
 	}
-	terminal.ReadPassword(1)
+	terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\r%s\r", string(blank_line))
-}
-
-// Gets user input, used during setup and configuration.
-func GetInput(prompt string) string {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Printf(prompt)
-	response, _ := reader.ReadString('\n')
-	response = cleanInput(response)
-
-	return response
 }
 
 // Get Hidden/Password input, without returning information to the screen.
