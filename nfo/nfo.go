@@ -53,7 +53,9 @@ const (
 var (
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
+	Animations         = true // Enable/Disable Flash Output
 	flush_line         []rune
+	last_line          int
 	flush_needed       bool
 	piped_stdout       bool
 	piped_stderr       bool
@@ -309,7 +311,9 @@ func SetPrefix(logger uint32, prefix_str string) {
 
 // Don't log, write text to standard error which will be overwritten on the next output.
 func Flash(vars ...interface{}) {
-	write2log(_flash_txt|_no_logging, vars...)
+	if Animations {
+		write2log(_flash_txt|_no_logging, vars...)
+	}
 }
 
 // Don't log, just print text to standard out.
@@ -464,13 +468,19 @@ func write2log(flag uint32, vars ...interface{}) {
 
 	// Clear out last flash text.
 	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
-		width := termWidth()
-		for i := len(flush_line); i < width; i++ {
-			flush_line = append(flush_line[0:], ' ')
+		if bufferLen < last_line {
+			width := termWidth()
+			for i := len(flush_line); i < width; i++ {
+				flush_line = append(flush_line[0:], ' ')
+			}
+			fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
+		} else {
+			fmt.Fprintf(os.Stderr, "\r")
 		}
-		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
 		flush_needed = false
 	}
+
+	last_line = bufferLen
 
 	// Flash text handler, make a line of text available to remove remnents of this text.
 	if flag&_flash_txt != 0 {
