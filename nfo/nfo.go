@@ -374,6 +374,10 @@ func Fatal(vars ...interface{}) {
 		signalChan <- os.Kill
 		<-exit_lock
 		os.Exit(1)
+	} else {
+		// Catch any other fatals and just let them sit.
+		halt := make(chan struct{})
+		<-halt
 	}
 }
 
