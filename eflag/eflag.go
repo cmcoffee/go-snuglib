@@ -320,6 +320,8 @@ func (s *EFlagSet) PrintDefaults() {
 				}
 			}
 		}
+	}
+	for _, v := range flag_order {
 		if txt, ok := flag_text[v]; ok {
 			fmt.Fprintf(output, txt)
 		}

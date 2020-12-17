@@ -233,6 +233,9 @@ func (K *boltDB) Get(table, key string, output interface{}) (found bool, err err
 		data := bucket.Get([]byte(key))
 		if data != nil {
 			found = true
+			if output == nil {
+				return nil
+			}
 		}
 		return K.encoder.decode(data, output)
 	})
@@ -282,6 +285,8 @@ func CryptReset(filename string) (err error) {
 	if err != nil {
 		return err
 	}
+
+	db.Set("KVLite", "Reset", true)
 
 	tables, err := db.Tables()
 	if err != nil {
@@ -339,6 +344,24 @@ func Open(filename string, padlock ...byte) (Store, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	found, err := db.Get("KVLite", "Reset", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if found {
+		db.Close()
+		err = CryptReset(filename)
+		if err != nil {
+			return nil, err
+		}
+		db, err = open(filename)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var X *xLock
 	_, err = db.Get("KVLite", "X", &X)
 	if err != nil {
@@ -347,6 +370,7 @@ func Open(filename string, padlock ...byte) (Store, error) {
 	if X == nil {
 		X = new(xLock)
 	}
+
 	db.encoder, err = X.dbunlocker(padlock)
 	if err != nil {
 		db.Close()
