@@ -37,83 +37,102 @@ func (s _voidText) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-type splitValue struct {
+type multiValue struct {
 	example string
 	value   *[]string
 }
 
-func (A *splitValue) String() string {
-	if len(*A.value) > 0 {
-		return strings.Join(*A.value, ",")
+func (A *multiValue) String() string {
+	if *A.value != nil && len(*A.value) > 0 {
+		return escape_array(*A.value)
 	} else {
 		return fmt.Sprintf("\"%s\"", A.example)
 	}
 }
 
-func (A *splitValue) Set(value string) error {
+func (A *multiValue) Set(value string) error {
 	A.example = ""
-	*A.value = append(*A.value, strings.Split(value, ",")[0:]...)
+	*A.value = append(*A.value, string_split(value)[0:]...)
 	return nil
 }
 
-func (A *splitValue) Get() interface{} { return []string(*A.value) }
+func string_split(input string) (output []string) {
+	var escaped bool
+	var temp []rune
+	for _, c := range input {
+		switch c {
+			case '\\':
+				if escaped {
+					escaped = false
+				} else {
+					escaped = true
+				}
+			case ',':
+				if !escaped {
+					output = append(output, string(temp[0:]))
+					temp = temp[0:0]
+				} else {
+					escaped = false
+					temp = append(temp, c)
+				}
+			case '"':
+				escaped = false
+				temp = append(temp, c)
+			default:
+				if escaped {
+					temp = append(temp, '\\')
+				}
+				temp = append(temp, c)
+				escaped = false
+		}
+	}
+	output = append(output, string(temp[0:]))
+	return
+}
+
+func escape_array(input []string) string {
+	var (
+		temp []rune
+		output []string
+	)
+
+	for _, str := range input {
+		for _, v := range str {
+			switch v {
+				case '"':
+					temp = append(temp, '\\', '"')
+				case ',':
+					temp = append(temp, '\\', ',')
+				default:
+					temp = append(temp, v)
+			}
+		}
+		output = append(output, fmt.Sprintf("\"%s\"", string(temp[0:])))
+		temp = temp[0:0]
+	}
+	return strings.Join(output, ",")
+}
+
+func (A *multiValue) Get() interface{} { return []string(*A.value) }
 
 // Array variable, ie.. multiple --string=values
-func (E *EFlagSet) Split(name string, example string, usage string) *[]string {
+func (E *EFlagSet) Multi(name string, example string, usage string) *[]string {
 	output := new([]string)
-	E.SplitVar(output, name, example, usage)
+	E.MultiVar(output, name, example, usage)
 	return output
 }
 
 // Array variable, ie.. multiple --string=values
-func (E *EFlagSet) SplitVar(p *[]string, name string, example string, usage string) {
+func (E *EFlagSet) MultiVar(p *[]string, name string, example string, usage string) {
 	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
 		example = example[1 : len(example)-1]
 	}
-	v := splitValue{
+	v := multiValue{
 		example: example,
 		value:   p,
 	}
-	E.Var(&v, name, usage)
-}
-
-// Array value, allows multiple --string=.
-type arrayValue struct {
-	example string
-	value   *[]string
-}
-
-func (A *arrayValue) String() string {
-	if len(*A.value) > 0 {
-		return strings.Join(*A.value, ",")
-	} else {
-		return fmt.Sprintf("\"%s\"", A.example)
-	}
-}
-
-func (A *arrayValue) Set(value string) error {
-	A.example = ""
-	*A.value = append(*A.value, value)
-	return nil
-}
-
-func (A *arrayValue) Get() interface{} { return []string(*A.value) }
-
-// Array variable, ie.. multiple --string=values
-func (E *EFlagSet) Array(name string, example string, usage string) *[]string {
-	output := new([]string)
-	E.ArrayVar(output, name, example, usage)
-	return output
-}
-
-// Array variable, ie.. multiple --string=values
-func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage string) {
-	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
-		example = example[1 : len(example)-1]
-	}
-	v := arrayValue{
-		example: example,
-		value:   p,
+	if len(usage) > 0 {
+		usage = fmt.Sprintf("%s (multi: comma-seperated)", usage)
 	}
 	E.Var(&v, name, usage)
 }
@@ -147,7 +166,6 @@ var cmd = EFlagSet{
 }
 
 var (
-	ArrayVar      = cmd.ArrayVar
 	SetOutput     = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
 	Alias         = cmd.Alias
@@ -290,10 +308,8 @@ func (s *EFlagSet) PrintDefaults() {
 				text = append(text, fmt.Sprintf("=%s", flag.DefValue))
 			}
 		}
+
 		text = append(text, fmt.Sprintf("\t%s\n", flag.Usage))
-		if _, ok := flag.Value.(*arrayValue); ok {
-			text = append(text, fmt.Sprintf("\t \\_ use seperate --%s flags for multi-%s...\n", name, name))
-		}
 
 		if alias == "" {
 			flag_text[name] = strings.Join(text[0:], "")
