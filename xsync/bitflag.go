@@ -15,7 +15,7 @@ func (B *BitFlag) Has(flag uint64) bool {
 
 // Set BitFlag
 func (B *BitFlag) Set(flag uint64) bool {
-	return atomic.CompareAndSwapUint64((*uint64)(B), atomic.LoadUint64((*uint64)(B))&^uint64(flag), atomic.LoadUint64((*uint64)(B))|uint64(flag)) 
+	return atomic.CompareAndSwapUint64((*uint64)(B), atomic.LoadUint64((*uint64)(B))&^uint64(flag), atomic.LoadUint64((*uint64)(B))|uint64(flag))
 }
 
 // Unset BitFlag

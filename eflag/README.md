@@ -11,7 +11,6 @@ standard from the flag library.
 
 ```go
 var (
-	ArrayVar      = cmd.ArrayVar
 	SetOutput     = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
 	Alias         = cmd.Alias
@@ -73,21 +72,6 @@ func Parse() (err error)
 func Usage()
 ```
 
-#### type ArrayValue
-
-```go
-type ArrayValue struct {
-	flag.Value
-}
-```
-
-
-#### func (ArrayValue) IsArray
-
-```go
-func (v ArrayValue) IsArray() bool
-```
-
 #### type EFlagSet
 
 ```go
@@ -122,25 +106,25 @@ current name and the new alias name.
 func (s *EFlagSet) Args() []string
 ```
 
-#### func (*EFlagSet) Array
-
-```go
-func (E *EFlagSet) Array(name string, example string, usage string) *[]string
-```
-Array variable, ie.. multiple --string=values
-
-#### func (*EFlagSet) ArrayVar
-
-```go
-func (E *EFlagSet) ArrayVar(p *[]string, name string, example string, usage string)
-```
-Array variable, ie.. multiple --string=values
-
 #### func (*EFlagSet) IsSet
 
 ```go
 func (s *EFlagSet) IsSet(name string) bool
 ```
+
+#### func (*EFlagSet) Multi
+
+```go
+func (E *EFlagSet) Multi(name string, value string, usage string) *[]string
+```
+Array variable, ie.. comma-seperated values --flag="test","test2"
+
+#### func (*EFlagSet) MultiVar
+
+```go
+func (E *EFlagSet) MultiVar(p *[]string, name string, value string, usage string)
+```
+Array variable, ie.. comma-seperated values --flag="test","test2"
 
 #### func (*EFlagSet) Order
 
@@ -175,32 +159,6 @@ Resolves Alias name to fullname
 func (s *EFlagSet) SetOutput(output io.Writer)
 ```
 Change where output will be directed.
-
-#### func (*EFlagSet) Split
-
-```go
-func (E *EFlagSet) Split(name string, example string, usage string) *[]string
-```
-Array variable, ie.. multiple --string=values
-
-#### func (*EFlagSet) SplitVar
-
-```go
-func (E *EFlagSet) SplitVar(p *[]string, name string, example string, usage string)
-```
-Array variable, ie.. multiple --string=values
-
-#### func (*EFlagSet) String
-
-```go
-func (s *EFlagSet) String(name string, value string, usage string) *string
-```
-
-#### func (*EFlagSet) StringVar
-
-```go
-func (s *EFlagSet) StringVar(p *string, name string, value string, usage string)
-```
 
 #### type ErrorHandling
 

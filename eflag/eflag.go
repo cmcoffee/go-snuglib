@@ -38,52 +38,53 @@ func (s _voidText) Write(p []byte) (n int, err error) {
 }
 
 type multiValue struct {
-	example string
-	value   *[]string
+	value *[]string
 }
 
 func (A *multiValue) String() string {
 	if *A.value != nil && len(*A.value) > 0 {
 		return escape_array(*A.value)
 	} else {
-		return fmt.Sprintf("\"%s\"", A.example)
+		return ""
 	}
 }
 
 func (A *multiValue) Set(value string) error {
-	A.example = ""
-	*A.value = append(*A.value, string_split(value)[0:]...)
+	*A.value = string_split(value)
 	return nil
 }
 
 func string_split(input string) (output []string) {
+	if len(input) == 0 {
+		return
+	}
 	var escaped bool
 	var temp []rune
 	for _, c := range input {
 		switch c {
-			case '\\':
-				if escaped {
-					escaped = false
-				} else {
-					escaped = true
-				}
-			case ',':
-				if !escaped {
-					output = append(output, string(temp[0:]))
-					temp = temp[0:0]
-				} else {
-					escaped = false
-					temp = append(temp, c)
-				}
-			case '"':
+		case '\\':
+			if escaped {
+				escaped = false
+			} else {
+				escaped = true
+			}
+		case ',':
+			if !escaped {
+				output = append(output, string(temp[0:]))
+				temp = temp[0:0]
+			} else {
 				escaped = false
 				temp = append(temp, c)
-			default:
-				if escaped {
-					temp = append(temp, '\\')
-				}
-				temp = append(temp, c)
-				escaped = false
+			}
+		case '"':
+			escaped = false
+			temp = append(temp, c)
+		default:
+			if escaped {
+				temp = append(temp, '\\')
+			}
+			temp = append(temp, c)
+			escaped = false
 		}
 	}
 	output = append(output, string(temp[0:]))
@@ -92,19 +93,19 @@ func string_split(input string) (output []string) {
 
 func escape_array(input []string) string {
 	var (
-		temp []rune
+		temp   []rune
 		output []string
 	)
 
 	for _, str := range input {
 		for _, v := range str {
 			switch v {
-				case '"':
-					temp = append(temp, '\\', '"')
-				case ',':
-					temp = append(temp, '\\', ',')
-				default:
-					temp = append(temp, v)
+			case '"':
+				temp = append(temp, '\\', '"')
+			case ',':
+				temp = append(temp, '\\', ',')
+			default:
+				temp = append(temp, v)
 			}
 		}
 		output = append(output, fmt.Sprintf("\"%s\"", string(temp[0:])))
@@ -115,22 +116,21 @@ func escape_array(input []string) string {
 
 func (A *multiValue) Get() interface{} { return []string(*A.value) }
 
-// Array variable, ie.. multiple --string=values
-func (E *EFlagSet) Multi(name string, example string, usage string) *[]string {
+// Array variable, ie.. comma-seperated values --flag="test","test2"
+func (E *EFlagSet) Multi(name string, value string, usage string) *[]string {
 	output := new([]string)
-	E.MultiVar(output, name, example, usage)
+	E.MultiVar(output, name, value, usage)
 	return output
 }
 
-// Array variable, ie.. multiple --string=values
-func (E *EFlagSet) MultiVar(p *[]string, name string, example string, usage string) {
-	if strings.HasPrefix(example, "<") && strings.HasSuffix(example, ">") {
-		example = example[1 : len(example)-1]
-	}
+// Array variable, ie.. comma-seperated values --flag="test","test2"
+func (E *EFlagSet) MultiVar(p *[]string, name string, value string, usage string) {
+	*p = string_split(value)
+
 	v := multiValue{
-		example: example,
-		value:   p,
+		value: p,
 	}
+
 	if len(usage) > 0 {
 		usage = fmt.Sprintf("%s (multi: comma-seperated)", usage)
 	}
@@ -143,7 +143,6 @@ type EFlagSet struct {
 	Footer        string // Footer presented at end of help.
 	AdaptArgs     bool   // Reorders flags and arguments so flags come first, non-flag arguments second, unescapes arguments with '\' escape character.
 	alias         map[string]string
-	stringVars    map[string]bool
 	out           io.Writer
 	errorHandling ErrorHandling
 	setFlags      []string
@@ -157,7 +156,6 @@ var cmd = EFlagSet{
 	"",
 	false,
 	make(map[string]string),
-	make(map[string]bool),
 	os.Stderr,
 	ExitOnError,
 	make([]string, 0),
@@ -251,7 +249,6 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 		"",
 		false,
 		make(map[string]string),
-		make(map[string]bool),
 		os.Stderr,
 		errorHandling,
 		make([]string, 0),
@@ -280,7 +277,6 @@ func (s *EFlagSet) PrintDefaults() {
 		var text []string
 		name := flag.Name
 		alias := s.alias[flag.Name]
-		is_string := s.stringVars[flag.Name]
 		if alias != "" {
 			if len(alias) > 1 {
 				text = append(text, fmt.Sprintf("  --%s,", alias))
@@ -297,13 +293,21 @@ func (s *EFlagSet) PrintDefaults() {
 		} else {
 			text = append(text, fmt.Sprintf("%s-%s", space, name))
 		}
-		if is_string == true {
-			if strings.HasPrefix(flag.DefValue, "<") && strings.HasSuffix(flag.DefValue, ">") {
+
+		switch flag.DefValue[0] {
+		case '"':
+			if strings.HasPrefix(flag.DefValue, "\"<") && strings.HasSuffix(flag.DefValue, ">\"") {
+				text = append(text, fmt.Sprintf("=%q", flag.DefValue[2:len(flag.DefValue)-2]))
+			} else {
+				text = append(text, fmt.Sprintf("=%s", flag.DefValue))
+			}
+		case '<':
+			if flag.DefValue[len(flag.DefValue)-1] == '>' {
 				text = append(text, fmt.Sprintf("=%q", flag.DefValue[1:len(flag.DefValue)-1]))
 			} else {
-				text = append(text, fmt.Sprintf("=%q", flag.DefValue))
+				text = append(text, fmt.Sprintf("=%s", flag.DefValue))
 			}
-		} else {
+		default:
 			if flag.DefValue != "true" && flag.DefValue != "false" {
 				text = append(text, fmt.Sprintf("=%s", flag.DefValue))
 			}
@@ -344,15 +348,6 @@ func (s *EFlagSet) PrintDefaults() {
 	}
 	fmt.Fprintf(output, "  --help\tDisplays this usage information.\n")
 	output.Flush()
-}
-
-type ArrayValue struct {
-	is_array_var bool
-	flag.Value
-}
-
-func (v ArrayValue) IsArray() bool {
-	return true
 }
 
 // Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.
@@ -443,7 +438,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 	// Remove example text from strings, ie.. <server to connect with>
 	clear_examples := func(f *flag.Flag) {
 		val := f.Value.String()
-		if strings.HasPrefix(val, "<") && strings.HasSuffix(val, ">") {
+		if (strings.HasPrefix(val, "<") || strings.HasPrefix(val, "\"<")) && (strings.HasSuffix(val, ">") || strings.HasSuffix(val, ">\"")) {
 			f.Value.Set("")
 		}
 	}
@@ -511,14 +506,4 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 		}
 	}
 	return
-}
-
-func (s *EFlagSet) String(name string, value string, usage string) *string {
-	s.stringVars[name] = true
-	return s.FlagSet.String(name, value, usage)
-}
-
-func (s *EFlagSet) StringVar(p *string, name string, value string, usage string) {
-	s.stringVars[name] = true
-	s.FlagSet.StringVar(p, name, value, usage)
 }

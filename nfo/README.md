@@ -44,6 +44,7 @@ const (
 var (
 	FatalOnFileError   = true // Fatal on log file or file rotation errors.
 	FatalOnExportError = true // Fatal on export/syslog error.
+	Animations         = true // Enable/Disable Flash Output
 
 )
 ```
