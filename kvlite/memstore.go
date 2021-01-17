@@ -2,6 +2,8 @@ package kvlite
 
 import (
 	"sync"
+	"fmt"
+	"strings"
 )
 
 // Memory-Map keystore
@@ -16,6 +18,35 @@ func (K *memStore) Table(table string) Table {
 	return focused{table: table, store: K}
 }
 
+func (K *memStore) Shared(table string) Store {
+	return &substore{fmt.Sprintf("__shared__%c%s%c", sepr, table, sepr), K}
+}
+
+// Changes bucket name.
+func (K *memStore) Sub(table string) Store {
+	return &substore{fmt.Sprintf("%s%c", table, sepr), K}
+}
+
+func (K *memStore) Buckets(limit_depth bool) (buckets []string, err error) {
+	K.mutex.RLock()
+	defer K.mutex.RUnlock()
+
+	bmap := make(map[string]struct{})
+
+	for k, _ := range K.kv {
+		if !limit_depth {
+			buckets = append(buckets, k)
+		} else {
+			k = strings.Split(k, string(sepr))[0]
+			if _, ok := bmap[k]; !ok {
+				bmap[k] = struct{}{}
+				buckets = append(buckets, k)
+			}
+		}
+	}
+	return
+}
+
 func (K *memStore) Keys(table string) (keys []string, err error) {
 	K.mutex.RLock()
 	defer K.mutex.RUnlock()
@@ -28,13 +59,14 @@ func (K *memStore) Keys(table string) (keys []string, err error) {
 }
 
 func (K *memStore) Tables() (tables []string, err error) {
-	K.mutex.RLock()
-	defer K.mutex.RUnlock()
-	for k, _ := range K.kv {
-		tables = append(tables, k)
+	tmp, e := K.Buckets(true)
+	if err != nil {
+		return tables, e
 	}
-	if tables == nil {
-		tables = append(tables, "")
+	for _, v := range tmp {
+		if !strings.ContainsRune(v, sepr) {
+			tables = append(tables, v)
+		}
 	}
 	return tables, err
 }

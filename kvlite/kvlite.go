@@ -7,14 +7,22 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"github.com/boltdb/bolt"
+	"fmt"
+	"strings"
 )
 
 // Main Store Interface
 type Store interface {
 	// Tables provides a list of all tables.
 	Tables() (tables []string, err error)
-	// Table creats a SubStore of specified table.
+	// Table creats a key/val direct to a specified Table.
 	Table(table string) Table
+	// SubStore Creates a new bucket with a different namespace.
+	Sub(name string) Store
+	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
+	Buckets(limit_depth bool) (stores []string, err error)
+	// SyncStore Creates a new bucket for shared tenants.
+	Shared(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -85,6 +93,32 @@ type boltDB struct {
 
 type encoder []byte
 
+// Get all buckets on system.
+func (K *boltDB) Buckets(limit_depth bool) (buckets []string, err error) {
+	bmap := make(map[string]struct{})
+
+	err = K.db.View(func(tx *bolt.Tx) error {
+		add_bucket := func(name []byte, b *bolt.Bucket) error {
+			name_str := string(name)
+			if name_str == "KVLite" {
+				return nil
+			}
+			if !limit_depth {
+				buckets = append(buckets, name_str)
+			} else {
+				name_str = strings.Split(name_str, string(sepr))[0]
+				if _, ok := bmap[name_str]; !ok {
+					bmap[name_str] = struct{}{}
+					buckets = append(buckets, name_str)
+				}
+			}
+			return nil
+		}
+		return tx.ForEach(add_bucket)
+	})
+	return buckets, err
+}
+
 // Perform sha256.Sum256 against input byte string.
 func hashBytes(input []byte) []byte {
 	sum := sha256.Sum256(input)
@@ -148,6 +182,16 @@ func (e *encoder) encode(input interface{}) (output []byte, err error) {
 	return buff.Bytes(), err
 }
 
+// Creates a bucket with a common namespace.
+func (K *boltDB) Shared(table string) Store {
+	return &substore{fmt.Sprintf("__shared__%c%s%c", sepr, table, sepr), K}
+}
+
+// Created a bucket using a different name space.
+func (K *boltDB) Sub(name string) Store {
+	return &substore{fmt.Sprintf("%s%c", name, sepr), K}
+}
+
 // Counts keys in table.
 func (K *boltDB) CountKeys(table string) (count int, err error) {
 	err = K.db.View(func(tx *bolt.Tx) error {
@@ -204,16 +248,15 @@ func (K *boltDB) Drop(table string) (err error) {
 
 // Lists all tables
 func (K *boltDB) Tables() (tables []string, err error) {
-	err = K.db.View(func(tx *bolt.Tx) error {
-		add_bucket := func(name []byte, b *bolt.Bucket) error {
-			if string(name) == "KVLite" {
-				return nil
-			}
-			tables = append(tables, string(name))
-			return nil
+	tmp, e := K.Buckets(true)
+	if e != nil {
+		return tables, e
+	}
+	for _, v := range tmp {
+		if !strings.ContainsRune(v, sepr) {
+			tables = append(tables, v)
 		}
-		return tx.ForEach(add_bucket)
-	})
+	}
 	return tables, err
 }
 
@@ -288,7 +331,7 @@ func CryptReset(filename string) (err error) {
 
 	db.Set("KVLite", "Reset", true)
 
-	tables, err := db.Tables()
+	tables, err := db.Buckets(false)
 	if err != nil {
 		return err
 	}

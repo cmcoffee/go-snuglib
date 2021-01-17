@@ -14,7 +14,7 @@ var (
 	// Signal Notification Channel. (ie..nfo.Signal<-os.Kill will initiate a shutdown.)
 	signalChan  = make(chan os.Signal)
 	globalDefer struct {
-		mutex sync.Mutex
+		mutex sync.RWMutex
 		ids   []string
 		d_map map[string]func() error
 	}
@@ -157,14 +157,16 @@ func init() {
 			break
 		}
 
-		globalDefer.mutex.Lock()
-		defer globalDefer.mutex.Unlock()
+		globalDefer.mutex.RLock()
+		defer globalDefer.mutex.RUnlock()
 
 		// Run through all globalDefer functions.
 		for i := len(globalDefer.ids) - 1; i >= 0; i-- {
+			globalDefer.mutex.RUnlock()
 			if err := globalDefer.d_map[globalDefer.ids[i]](); err != nil {
 				write2log(ERROR|_bypass_lock, err.Error())
 			}
+			globalDefer.mutex.RLock()
 		}
 
 		// Wait on any process that have access to wait.
