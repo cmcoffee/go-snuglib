@@ -215,7 +215,7 @@ var (
 	SyntaxName    = cmd.SyntaxName
 	SetOutput     = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
-	Alias         = cmd.Alias
+	Shorten       = cmd.Shorten
 	String        = cmd.String
 	StringVar     = cmd.StringVar
 	Arg           = cmd.Arg
@@ -416,17 +416,17 @@ func (s *EFlagSet) PrintDefaults() {
 	output.Flush()
 }
 
-// Adds an alias to an existing flag, requires a pointer to the variable, the current name and the new alias name.
-func (s *EFlagSet) Alias(name string, alias string) {
+// Adds a single charachter alias to the command, ie.. --help h
+func (s *EFlagSet) Shorten(name string, ch rune) {
 	flag := s.Lookup(name)
 	if flag == nil {
 		return
 	}
-	s.Var(flag.Value, alias, "")
-	s.alias[name] = alias
+	s.Var(flag.Value, string(ch), "")
+	s.alias[name] = string(ch)
 
 	// Create reverse lookup
-	s.alias[fmt.Sprintf("-%s-", alias)] = name
+	s.alias[fmt.Sprintf("-%s-", string(ch))] = name
 }
 
 // Resolves Alias name to fullname
@@ -514,37 +514,58 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 
 	s.FlagSet.VisitAll(clear_examples)
 
+	mark_set_flags := func(f *flag.Flag) {
+		s.setFlags = append(s.setFlags, f.Name)
+	}
+
 	num := 0
 	txt_args := s.FlagSet.Args()
 	multi_set := false
 
-	for _, f := range s.argMap {
+	for i, f := range s.argMap {
 		if val, ok := val_map[f.Name]; ok {
 			v := *val
 			if v.String() == "" {
 				if _, ok := v.(*multiValue); ok && !multi_set {
 					multi_set = true
-					if len(txt_args) > num {
-						e := num + len(txt_args) - (len(val_map) - 1)
-						if e == 0 {
-							e = len(txt_args)
+					txt_len := len(txt_args)
+					// First Argument
+					if i == 0 {
+						if txt_len == 1 {
+							v.Set(txt_args[0])
+							num++
+						} else if txt_len > 1 {
+							if e := txt_len - (len(s.argMap) - 1); e > 0 {
+								v.Set(strings.Join(txt_args[0:e], ","))
+								num = e
+							} else {
+								v.Set(txt_args[num])
+								num++
+							}
 						}
-						if e > len(txt_args) {
-							continue
+					// Last Argument
+					} else if i == len(s.argMap)-1 {
+						v.Set(strings.Join(txt_args[num:], ","))
+						num = txt_len - 1
+					// Somwhere in the middle.
+					} else {
+						if x := txt_len - num; x > 1 {
+							v.Set(strings.Join(txt_args[num:txt_len-1], ","))
+							num = txt_len - 1
+						} else if x > 0 {
+							v.Set(txt_args[txt_len-1])
+							num++
 						}
-						v.Set(strings.Join(txt_args[num:e], ","))
-						num = e
 					}
 				} else if str := s.FlagSet.Arg(num); str != "" {
 					v.Set(str)
 					num++
 				}
 			}
+			if v.String() != "" {
+				mark_set_flags(f)
+			}
 		}
-	}
-
-	mark_set_flags := func(f *flag.Flag) {
-		s.setFlags = append(s.setFlags, f.Name)
 	}
 
 	s.FlagSet.Visit(mark_set_flags)
