@@ -132,7 +132,6 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 		transferDisplay.display = 1
 
 		go func() {
-			defer transferDisplay.update_lock.Unlock()
 			for {
 				transferDisplay.update_lock.Lock()
 
@@ -149,6 +148,7 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 
 				if len(transferDisplay.monitors) == 0 {
 					PleaseWait.flag.Unset(transfer_monitor_active)
+					transferDisplay.update_lock.Unlock()
 					return
 				}
 
@@ -398,8 +398,8 @@ func HumanSize(bytes int64) string {
 	suffix := 0
 	size := float64(bytes)
 
-	for size >= 1000 && suffix < len(names)-1 {
-		size = size / 1000
+	for size >= 1024 && suffix < len(names)-1 {
+		size = size / 1024
 		suffix++
 	}
 
