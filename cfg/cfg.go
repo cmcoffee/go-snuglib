@@ -508,6 +508,7 @@ func (s *Store) Parse(input string) (err error) {
 
 // Reads configuration file and returns Store, file must exist even if empty.
 func (s *Store) File(file string) (err error) {
+	s.file = file
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -517,7 +518,6 @@ func (s *Store) File(file string) (err error) {
 	if err != nil {
 		return fmt.Errorf("%s: %s", file, err)
 	}
-	s.file = file
 	return
 }
 

@@ -27,6 +27,7 @@ type ReadSeekCloser interface {
 
 func termWidth() int {
 	width, _, _ := terminal.GetSize(int(syscall.Stderr))
+	width--
 	return width
 }
 
@@ -337,7 +338,7 @@ func (t *tmon) progressBar(name string) string {
 		num = 100
 	}
 
-	sz := termWidth()
+	sz := termWidth() - 3
 
 	first_half := fmt.Sprintf("%s: %s", name, t.showRate())
 	second_half := fmt.Sprintf("(%s/%s)", HumanSize(t.transfered), HumanSize(t.total_size))
