@@ -231,6 +231,8 @@ var (
 	Int64         = cmd.Int64
 	Int64Var      = cmd.Int64Var
 	Lookup        = cmd.Lookup
+	Multi         = cmd.Multi
+	MultiVar      = cmd.MultiVar
 	NArg          = cmd.NArg
 	NFlag         = cmd.NFlag
 	Name          = cmd.Name
@@ -266,9 +268,9 @@ func Parse() (err error) {
 
 // Shows usage.
 func Usage() {
-	if !cmd.Parsed() {
+	//if !cmd.Parsed() {
 		cmd.Parse([]string{"--help"})
-	}
+	//} 
 }
 
 // Specifies the order in which flags are displayed.
