@@ -78,6 +78,9 @@ func NewReader(source io.Reader, timeout time.Duration) io.Reader {
 // Timeout ReadCloser: Adds a timer to io.ReadCloser
 func NewReadCloser(source io.ReadCloser, timeout time.Duration) io.ReadCloser {
 	t := new(readCloser)
+	if source == nil {
+		return source
+	}
 	t.src = source
 	t.input = make(chan []byte, 2)
 	t.output = make(chan resp, 1)

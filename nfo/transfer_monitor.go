@@ -256,7 +256,7 @@ func (t *tmon) showTransfer(summary bool) string {
 }
 
 // Provides average rate of transfer.
-func (t *tmon) showRate() string {
+func (t *tmon) showRate() (rate string) {
 
 	transfered := atomic.LoadInt64(&t.transfered)
 	if transfered == 0 || t.flag.Has(trans_complete) {
@@ -285,20 +285,23 @@ func (t *tmon) showRate() string {
 	}
 
 	if sz != 0.0 {
-		t.rate = fmt.Sprintf("%.1f%s", sz, names[suffix])
+		rate = fmt.Sprintf("%.1f%s", sz, names[suffix])
 	} else {
 		if t.flag.Has(trans_active) {
-			t.rate = "0.0bps"
+			rate = "0.0bps"
 		} else {
-			t.rate = "\b"
+			rate = "\b"
 		}
 	}
+
+	t.rate = rate
 
 	if !t.flag.Has(trans_complete) && atomic.LoadInt64(&t.transfered)+t.offset == t.total_size {
 		t.flag.Set(trans_complete)
 	}
+
 	if !t.flag.Has(trans_closed) {
-		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(t.rate)-1:], []rune(t.rate)[0:]...))
+		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(rate)-1:], []rune(rate)[0:]...))
 	} else {
 		return t.rate
 	}
