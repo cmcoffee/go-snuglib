@@ -321,6 +321,30 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet) {
 	return output
 }
 
+// Provide same order.
+func (s *EFlagSet) VisitAll(fn func(*Flag)) {
+	var flags []*Flag
+	f_names := make(map[string]struct{})
+
+	copy_flags := func(input_flag *Flag) {
+		flags = append(flags, input_flag)
+	}
+	s.FlagSet.VisitAll(copy_flags)
+	for _, name := range s.order {
+		for _, f := range flags {
+			if name == f.Name {
+				fn(f)
+				f_names[name] = struct{}{}
+			}
+		}
+	}
+	for _, f := range flags {
+		if _, ok := f_names[f.Name]; !ok {
+			fn(f)
+		}
+	}
+}
+
 // Reads through all flags available and outputs with better formatting.
 func (s *EFlagSet) PrintDefaults() {
 
@@ -414,6 +438,7 @@ func (s *EFlagSet) PrintDefaults() {
 			fmt.Fprintf(output, txt)
 		}
 	}
+
 	fmt.Fprintf(output, "  --help\tDisplays this usage information.\n")
 	output.Flush()
 }
