@@ -337,6 +337,13 @@ func Stdout(vars ...interface{})
 ```
 Don't log, just print text to standard out.
 
+#### func  Stringer
+
+```go
+func Stringer(vars ...interface{}) string
+```
+Don't output, but instead return a string.
+
 #### func  Trace
 
 ```go

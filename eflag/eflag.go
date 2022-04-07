@@ -177,7 +177,7 @@ func (E *EFlagSet) CLIArgs(name ...string) {
 	}
 }
 
-// A EFlagSet is a set of defined flags. 
+// A EFlagSet is a set of defined flags.
 type EFlagSet struct {
 	name          string
 	Header        string // Header presented at start of help.
@@ -269,8 +269,8 @@ func Parse() (err error) {
 // Shows usage.
 func Usage() {
 	//if !cmd.Parsed() {
-		cmd.Parse([]string{"--help"})
-	//} 
+	cmd.Parse([]string{"--help"})
+	//}
 }
 
 // Specifies the order in which flags are displayed.
@@ -570,11 +570,11 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 								num++
 							}
 						}
-					// Last Argument
+						// Last Argument
 					} else if i == len(s.argMap)-1 {
 						v.Set(strings.Join(txt_args[num:], ","))
 						num = txt_len - 1
-					// Somwhere in the middle.
+						// Somwhere in the middle.
 					} else {
 						if x := txt_len - num; x > 1 {
 							v.Set(strings.Join(txt_args[num:txt_len-1], ","))

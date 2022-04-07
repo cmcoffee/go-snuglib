@@ -6,11 +6,11 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/gob"
-	"github.com/boltdb/bolt"
+	"errors"
 	"fmt"
+	"github.com/boltdb/bolt"
 	"strings"
 	"time"
-	"errors"
 )
 
 var ErrLocked = errors.New("Database is currently in use by an exisiting instance, please close it and try again.")

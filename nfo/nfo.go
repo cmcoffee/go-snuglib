@@ -316,6 +316,13 @@ func Flash(vars ...interface{}) {
 	}
 }
 
+// Don't output, but instead return a string.
+func Stringer(vars ...interface{}) string {
+	var buf bytes.Buffer
+	fprintf(&buf, vars...)
+	return buf.String()
+}
+
 // Don't log, just print text to standard out.
 func Stdout(vars ...interface{}) {
 	write2log(_print_txt|_no_logging, vars...)
@@ -327,43 +334,43 @@ func Stderr(vars ...interface{}) {
 }
 
 // Log as Info.
-func Log(vars ...interface{}) string {
-	return write2log(INFO, vars...)
+func Log(vars ...interface{}) {
+	write2log(INFO, vars...)
 }
 
 // Log as Error.
-func Err(vars ...interface{}) string {
-	return write2log(ERROR, vars...)
+func Err(vars ...interface{}) {
+	write2log(ERROR, vars...)
 }
 
 // Log as Warn.
-func Warn(vars ...interface{}) string {
-	return write2log(WARN, vars...)
+func Warn(vars ...interface{}) {
+	write2log(WARN, vars...)
 }
 
 // Log as Notice.
-func Notice(vars ...interface{}) string {
-	return write2log(NOTICE, vars...)
+func Notice(vars ...interface{}) {
+	write2log(NOTICE, vars...)
 }
 
 // Log as Info, as auxilary output.
-func Aux(vars ...interface{}) string {
-	return write2log(AUX, vars...)
+func Aux(vars ...interface{}) {
+	write2log(AUX, vars...)
 }
 
 // Log as Info, as auxilary output.
-func Aux2(vars ...interface{}) string {
-	return write2log(AUX2, vars...)
+func Aux2(vars ...interface{}) {
+	write2log(AUX2, vars...)
 }
 
 // Log as Info, as auxilary output.
-func Aux3(vars ...interface{}) string {
-	return write2log(AUX3, vars...)
+func Aux3(vars ...interface{}) {
+	write2log(AUX3, vars...)
 }
 
 // Log as Info, as auxilary output.
-func Aux4(vars ...interface{}) string {
-	return write2log(AUX4, vars...)
+func Aux4(vars ...interface{}) {
+	write2log(AUX4, vars...)
 }
 
 // Log as Fatal, then quit.
@@ -421,13 +428,13 @@ func fprintf(buffer io.Writer, vars ...interface{}) {
 }
 
 // Prepares output text and sends to appropriate logging destinations.
-func write2log(flag uint32, vars ...interface{}) string {
+func write2log(flag uint32, vars ...interface{}) {
 
 	if atomic.LoadInt32(&fatal_triggered) == 1 {
 		if flag&_bypass_lock != 0 {
 			flag ^= _bypass_lock
 		} else {
-			return ""
+			return
 		}
 	}
 
@@ -493,14 +500,14 @@ func write2log(flag uint32, vars ...interface{}) string {
 			}
 			io.Copy(os.Stderr, bytes.NewReader(output))
 			flush_needed = true
-			return ""
+			return
 		}
-		return ""
+		return
 	}
 
 	io.Copy(logger.textout, bytes.NewReader(output))
 	if flag&_no_logging != 0 {
-		return string(output)
+		return
 	}
 
 	// Preprend timestamp for file.
@@ -548,7 +555,4 @@ func write2log(flag uint32, vars ...interface{}) string {
 			go Fatal(err)
 		}
 	}
-
-	return msg
-
 }

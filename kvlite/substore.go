@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 )
+
 type substore struct {
 	prefix string
-	db Store
+	db     Store
 }
 
 const sepr = '\x1f'
@@ -35,12 +36,12 @@ func (d substore) Drop(table string) (err error) {
 }
 
 // Encrypt value to go-kvlie, fatal on error.
-func (d substore) CryptSet(table, key string, value interface{}) (error) {
+func (d substore) CryptSet(table, key string, value interface{}) error {
 	return d.db.CryptSet(d.apply_prefix(table), key, value)
 }
 
 // Save value to go-kvlite.
-func (d substore) Set(table, key string, value interface{}) (error) {
+func (d substore) Set(table, key string, value interface{}) error {
 	return d.db.Set(d.apply_prefix(table), key, value)
 }
 
@@ -78,7 +79,7 @@ func (d substore) Buckets(limit_depth bool) (buckets []string, err error) {
 						buckets = append(buckets, name)
 					}
 				}
-			}			
+			}
 		}
 	}
 	return buckets, err
@@ -101,7 +102,7 @@ func (d substore) Tables() (buckets []string, err error) {
 }
 
 // Delete value from go-kvlite.
-func (d substore) Unset(table, key string) (error) {
+func (d substore) Unset(table, key string) error {
 	return d.db.Unset(d.apply_prefix(table), key)
 }
 

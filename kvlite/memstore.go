@@ -1,9 +1,9 @@
 package kvlite
 
 import (
-	"sync"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // Memory-Map keystore

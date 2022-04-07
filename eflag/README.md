@@ -11,9 +11,11 @@ standard from the flag library.
 
 ```go
 var (
+	CLIArgs       = cmd.CLIArgs
+	SyntaxName    = cmd.SyntaxName
 	SetOutput     = cmd.SetOutput
 	PrintDefaults = cmd.PrintDefaults
-	Alias         = cmd.Alias
+	Shorten       = cmd.Shorten
 	String        = cmd.String
 	StringVar     = cmd.StringVar
 	Arg           = cmd.Arg
@@ -29,6 +31,8 @@ var (
 	Int64         = cmd.Int64
 	Int64Var      = cmd.Int64Var
 	Lookup        = cmd.Lookup
+	Multi         = cmd.Multi
+	MultiVar      = cmd.MultiVar
 	NArg          = cmd.NArg
 	NFlag         = cmd.NFlag
 	Name          = cmd.Name
@@ -53,37 +57,43 @@ var ErrHelp = flag.ErrHelp
 ```go
 func Footer(input string)
 ```
+Sets the footer for usage info.
 
 #### func  Header
 
 ```go
 func Header(input string)
 ```
+Sets the header for usage info.
 
 #### func  Parse
 
 ```go
 func Parse() (err error)
 ```
+Parse flags
 
 #### func  Usage
 
 ```go
 func Usage()
 ```
+Shows usage.
 
 #### type EFlagSet
 
 ```go
 type EFlagSet struct {
-	Header    string // Header presented at start of help.
-	Footer    string // Footer presented at end of help.
-	AdaptArgs bool   // Reorders flags and arguments so flags come first, non-flag arguments second, unescapes arguments with '\' escape character.
+	Header     string // Header presented at start of help.
+	Footer     string // Footer presented at end of help.
+	AdaptArgs  bool   // Reorders flags and arguments so flags come first, non-flag arguments second, unescapes arguments with '\' escape character.
+	ShowSyntax bool   // Display Usage: line, CLIArgs will automatically display usage info.
 
 	*flag.FlagSet
 }
 ```
 
+A EFlagSet is a set of defined flags.
 
 #### func  NewFlagSet
 
@@ -92,19 +102,36 @@ func NewFlagSet(name string, errorHandling ErrorHandling) (output *EFlagSet)
 ```
 Load a flag created with flag package.
 
-#### func (*EFlagSet) Alias
-
-```go
-func (s *EFlagSet) Alias(name string, alias string)
-```
-Adds an alias to an existing flag, requires a pointer to the variable, the
-current name and the new alias name.
-
 #### func (*EFlagSet) Args
 
 ```go
 func (s *EFlagSet) Args() []string
 ```
+Returns extra arguments.
+
+#### func (*EFlagSet) Bool
+
+```go
+func (E *EFlagSet) Bool(name string, usage string) *bool
+```
+Bool defines a bool flag with specified name, default and usage string. The
+return value is the address of a bool variable that stores the value of the
+flag.
+
+#### func (*EFlagSet) BoolVar
+
+```go
+func (E *EFlagSet) BoolVar(p *bool, name string, usage string)
+```
+BoolVar defines a bool flag with specified name, and usage string. The argument
+p points to a bool variable in which to store the value of the flag.
+
+#### func (*EFlagSet) CLIArgs
+
+```go
+func (E *EFlagSet) CLIArgs(name ...string)
+```
+Maps CLI Args not set to flags, to flags in order of addition.
 
 #### func (*EFlagSet) IsSet
 
@@ -131,6 +158,7 @@ Array variable, ie.. comma-seperated values --flag="test","test2"
 ```go
 func (s *EFlagSet) Order(name ...string)
 ```
+Specifies the order in which flags are displayed.
 
 #### func (*EFlagSet) Parse
 
@@ -159,6 +187,27 @@ Resolves Alias name to fullname
 func (s *EFlagSet) SetOutput(output io.Writer)
 ```
 Change where output will be directed.
+
+#### func (*EFlagSet) Shorten
+
+```go
+func (s *EFlagSet) Shorten(name string, ch rune)
+```
+Adds a single charachter alias to the command, ie.. --help h
+
+#### func (*EFlagSet) SyntaxName
+
+```go
+func (E *EFlagSet) SyntaxName(name string)
+```
+Specifies the name that will be shown for the usage/syntax.
+
+#### func (*EFlagSet) VisitAll
+
+```go
+func (s *EFlagSet) VisitAll(fn func(*Flag))
+```
+Provide same order.
 
 #### type ErrorHandling
 

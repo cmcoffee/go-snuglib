@@ -11,6 +11,10 @@ var ErrBadPadlock = errors.New("Invalid padlock provided, unable to open databas
 ErrBadPadlock is returned if kvlite.Open is used with incorrect padlock set on
 database.
 
+```go
+var ErrLocked = errors.New("Database is currently in use by an exisiting instance, please close it and try again.")
+```
+
 #### func  CryptReset
 
 ```go
@@ -24,8 +28,14 @@ Resets encryption key on database, removing all encrypted keys in the process.
 type Store interface {
 	// Tables provides a list of all tables.
 	Tables() (tables []string, err error)
-	// Table creats a SubStore of specified table.
+	// Table creats a key/val direct to a specified Table.
 	Table(table string) Table
+	// SubStore Creates a new bucket with a different namespace.
+	Sub(name string) Store
+	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
+	Buckets(limit_depth bool) (stores []string, err error)
+	// SyncStore Creates a new bucket for shared tenants.
+	Shared(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
