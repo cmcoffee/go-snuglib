@@ -301,7 +301,7 @@ func (t *tmon) showRate() (rate string) {
 	}
 
 	if !t.flag.Has(trans_closed) {
-		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}[len(rate)-1:], []rune(rate)[0:]...))
+		return string(append([]rune{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',' ',' '}[len(rate)-1:], []rune(rate)[0:]...))
 	} else {
 		return t.rate
 	}

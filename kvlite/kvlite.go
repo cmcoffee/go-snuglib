@@ -9,7 +9,11 @@ import (
 	"github.com/boltdb/bolt"
 	"fmt"
 	"strings"
+	"time"
+	"errors"
 )
+
+var ErrLocked = errors.New("Database is currently in use by an exisiting instance, please close it and try again.")
 
 // Main Store Interface
 type Store interface {
@@ -374,8 +378,11 @@ func CryptReset(filename string) (err error) {
 
 // Opens bolt keystore.
 func open(filename string) (DB *boltDB, err error) {
-	db, err := bolt.Open(filename, 0600, nil)
+	db, err := bolt.Open(filename, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
+		if err == bolt.ErrTimeout {
+			err = ErrLocked
+		}
 		return nil, err
 	}
 	return &boltDB{db: db}, nil
