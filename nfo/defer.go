@@ -23,6 +23,14 @@ var (
 	exit_lock = make(chan struct{})
 )
 
+// Check if system is currently in shutdown.
+func ShutdownInProgress() bool {
+	if atomic.LoadInt32(&fatal_triggered) != 0 {
+		return true
+	}
+	return false
+}
+
 // Global wait group, allows running processes to finish up tasks before app shutdown
 func BlockShutdown() {
 	wait.Add(1)

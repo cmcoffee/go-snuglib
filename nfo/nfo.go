@@ -479,6 +479,9 @@ func write2log(flag uint32, vars ...interface{}) {
 	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
 		if bufferLen < last_line {
 			width := termWidth()
+			if width < 32 {
+				width = 32
+			}
 			for i := len(flush_line); i < width; i++ {
 				flush_line = append(flush_line[0:], ' ')
 			}

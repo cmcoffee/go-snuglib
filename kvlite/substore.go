@@ -14,7 +14,7 @@ const sepr = '\x1f'
 
 // applies prefix of table to calls.
 func (d substore) apply_prefix(name string) string {
-	return string(append([]rune(d.prefix), sepr))
+	return string(append([]rune(d.prefix), []rune(name)...))
 }
 
 func (d *substore) Sub(name string) Store {
@@ -87,7 +87,7 @@ func (d substore) Buckets(limit_depth bool) (buckets []string, err error) {
 
 // List Tables in DB
 func (d substore) Tables() (buckets []string, err error) {
-	tmp, e := d.db.Buckets(true)
+	tmp, e := d.db.Buckets(false)
 	if e != nil {
 		return buckets, e
 	}

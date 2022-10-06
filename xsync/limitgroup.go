@@ -5,6 +5,7 @@ package xsync
 
 import "sync"
 
+
 type limitGroup struct {
 	wg      sync.WaitGroup
 	limiter chan struct{}
@@ -26,9 +27,6 @@ func NewLimitGroup(max int) LimitGroup {
 // Add adds on to sync.WaitGroup, expanding to have a limiter on the counter.
 // If delta is larger than the limiter, Add panics.
 func (L *limitGroup) Add(n int) {
-	if n > cap(L.limiter) {
-		panic("Attempted to add more goroutines than max LimitGroup allowed!")
-	}
 	L.wg.Add(n)
 	if L.limiter == nil {
 		return
@@ -47,21 +45,25 @@ func (L *limitGroup) Add(n int) {
 
 // Attempts to get a waitgroup thread, if true one is available and taken, if not, returns false.
 func (L *limitGroup) Try() bool {
+	L.wg.Add(1)
+	if L.limiter == nil {
+		return true
+	}
 	select {
 	case L.limiter <- struct{}{}:
-		L.wg.Add(1)
 		return true
 	default:
+		L.wg.Done()
 		return false
 	}
 }
 
 // Done decrements the LimitGroup counter by one.
 func (L *limitGroup) Done() {
+	L.wg.Done()
 	if L.limiter != nil {
 		<-L.limiter
 	}
-	L.wg.Done()
 }
 
 // Wait blocks until the LimitGroup is zero.

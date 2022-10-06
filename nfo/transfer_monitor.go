@@ -62,14 +62,19 @@ func TransferCounter(input ReadSeekCloser, counter func(int)) ReadSeekCloser {
 
 // Add Transfer to transferDisplay.
 // Parameters are "name" displayed for file transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and "total_sz" the total size of the transfer.
-func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser) ReadSeekCloser {
+func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser, optional_prefix...string) ReadSeekCloser {
 	transferDisplay.update_lock.Lock()
 	defer transferDisplay.update_lock.Unlock()
 
 	var (
 		short_name  []rune
 		target_size int
+		prefix string
 	)
+
+	if len(optional_prefix) > 0 {
+		prefix = optional_prefix[0]
+	}
 
 	b_flag := BitFlag(flag)
 	if b_flag.Has(LeftToRight) || b_flag <= 0 {
@@ -105,6 +110,7 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 	tm := &tmon{
 		flag:       b_flag,
 		name:       name,
+		prefix:     prefix,
 		short_name: string(short_name),
 		total_size: total_size,
 		transfered: 0,
@@ -185,6 +191,9 @@ func (tm *tmon) Seek(offset int64, whence int) (int64, error) {
 // Wrapped Reader
 func (tm *tmon) Read(p []byte) (n int, err error) {
 	n, err = tm.source.Read(p)
+	if err != nil {
+		return
+	}
 	atomic.StoreInt64(&tm.transfered, atomic.LoadInt64(&tm.transfered)+int64(n))
 	if err != nil {
 		if tm.flag.Has(trans_closed) {
@@ -202,7 +211,9 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 func (tm *tmon) Close() error {
 	tm.flag.Set(trans_closed)
 	if !tm.flag.Has(NoRate) {
-		Log(tm.showTransfer(true))
+		if tm.transfered > 0 || tm.total_size == 0 {
+			Log(tm.showTransfer(true))
+		}
 	}
 	return tm.source.Close()
 }
@@ -218,6 +229,7 @@ func spacePrint(min int, input string) string {
 // Transfer Monitor
 type tmon struct {
 	flag       BitFlag
+	prefix     string
 	name       string
 	short_name string
 	total_size int64
@@ -385,7 +397,11 @@ func (t *tmon) progressBar(name string) string {
 	if sz > 10 {
 		return fmt.Sprintf("%s [%s] %d%% %s ", first_half, string(display[0:]), int(num), second_half)
 	} else {
-		return fmt.Sprintf("%s %d%% %s", first_half, int(num), second_half)
+		if t.flag.Has(trans_closed) {
+			return fmt.Sprintf("%s%s %d%% %s", t.prefix, first_half, int(num), second_half)
+		} else {
+			return fmt.Sprintf("%s %d%% %s", first_half, int(num), second_half)
+		}
 	}
 }
 
