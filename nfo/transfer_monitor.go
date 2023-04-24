@@ -191,9 +191,6 @@ func (tm *tmon) Seek(offset int64, whence int) (int64, error) {
 // Wrapped Reader
 func (tm *tmon) Read(p []byte) (n int, err error) {
 	n, err = tm.source.Read(p)
-	if err != nil {
-		return
-	}
 	atomic.StoreInt64(&tm.transfered, atomic.LoadInt64(&tm.transfered)+int64(n))
 	if err != nil {
 		if tm.flag.Has(trans_closed) {
