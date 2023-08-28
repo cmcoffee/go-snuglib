@@ -30,11 +30,10 @@ type Store interface {
 	Tables() (tables []string, err error)
 	// Table creats a key/val direct to a specified Table.
 	Table(table string) Table
-	// SubStore Creates a new bucket with a different namespace.
+	// SubStore Creates a new bucket with a different namespace, tied to
 	Sub(name string) Store
-
 	// SyncStore Creates a new bucket for shared tenants.
-	NameSpace(name string) Store
+	Bucket(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.

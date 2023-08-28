@@ -8,7 +8,6 @@ import (
 type substore struct {
 	prefix string
 	db     Store
-	parent Store
 }
 
 const sepr = '\x1f'
@@ -19,12 +18,12 @@ func (d substore) apply_prefix(name string) string {
 }
 
 func (d *substore) Sub(name string) Store {
-	return &substore{fmt.Sprintf("%s%s%c", d.prefix, name, sepr), d.db, d.parent}
+	return &substore{fmt.Sprintf("%s%s%c", d.prefix, name, sepr), d.db}
 }
 
 // Creates a bucket with a common namespace.
-func (d *substore) NameSpace(name string) Store {
-	return d.parent.Sub(name)
+func (d *substore) Bucket(name string) Store {
+	return d.db.Sub(name)
 }
 
 func (d substore) Close() (err error) {

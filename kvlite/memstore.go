@@ -18,13 +18,14 @@ func (K *memStore) Table(table string) Table {
 	return focused{table: table, store: K}
 }
 
-func (K *memStore) NameSpace(table string) Store {
-	return &substore{fmt.Sprintf("%s%c", table, sepr), K, K}
+// Use a toplevel namespace.
+func (K *memStore) Bucket(name string) Store {
+	return K.Sub(name)
 }
 
 // Changes bucket name.
 func (K *memStore) Sub(table string) Store {
-	return &substore{fmt.Sprintf("%s%c", table, sepr), K, K}
+	return &substore{fmt.Sprintf("%s%c", table, sepr), K}
 }
 
 func (K *memStore) buckets(limit_depth bool) (buckets []string, err error) {

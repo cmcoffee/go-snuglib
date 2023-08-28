@@ -21,12 +21,10 @@ type Store interface {
 	Tables() (tables []string, err error)
 	// Table creats a key/val direct to a specified Table.
 	Table(table string) Table
-	// SubStore Creates a new bucket with a different namespace.
+	// SubStore Creates a new bucket with a different namespace, tied to
 	Sub(name string) Store
-	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
-	buckets(limit_depth bool) (stores []string, err error)
 	// SyncStore Creates a new bucket for shared tenants.
-	NameSpace(name string) Store
+	Bucket(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -43,6 +41,8 @@ type Store interface {
 	Get(table, key string, output interface{}) (found bool, err error)
 	// Close closes the kvliter.Store.
 	Close() (err error)
+	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
+	buckets(limit_depth bool) (stores []string, err error)
 }
 
 // Table Interface follows the Main Store Interface, but directly to a table.
@@ -187,13 +187,13 @@ func (e *encoder) encode(input interface{}) (output []byte, err error) {
 }
 
 // Creates a bucket with a common namespace.
-func (K *boltDB) NameSpace(name string) Store {
+func (K *boltDB) Bucket(name string) Store {
 	return K.Sub(name)
 }
 
 // Created a bucket using a different name space.
 func (K *boltDB) Sub(name string) Store {
-	return &substore{fmt.Sprintf("%s%c", name, sepr), K, K}
+	return &substore{fmt.Sprintf("%s%c", name, sepr), K}
 }
 
 // Counts keys in table.
