@@ -24,9 +24,9 @@ type Store interface {
 	// SubStore Creates a new bucket with a different namespace.
 	Sub(name string) Store
 	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
-	Buckets(limit_depth bool) (stores []string, err error)
+	buckets(limit_depth bool) (stores []string, err error)
 	// SyncStore Creates a new bucket for shared tenants.
-	Shared(name string) Store
+	NameSpace(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -98,7 +98,7 @@ type boltDB struct {
 type encoder []byte
 
 // Get all buckets on system.
-func (K *boltDB) Buckets(limit_depth bool) (buckets []string, err error) {
+func (K *boltDB) buckets(limit_depth bool) (buckets []string, err error) {
 	bmap := make(map[string]struct{})
 
 	err = K.db.View(func(tx *bolt.Tx) error {
@@ -187,13 +187,13 @@ func (e *encoder) encode(input interface{}) (output []byte, err error) {
 }
 
 // Creates a bucket with a common namespace.
-func (K *boltDB) Shared(table string) Store {
-	return &substore{fmt.Sprintf("__shared__%c%s%c", sepr, table, sepr), K}
+func (K *boltDB) NameSpace(name string) Store {
+	return K.Sub(name)
 }
 
 // Created a bucket using a different name space.
 func (K *boltDB) Sub(name string) Store {
-	return &substore{fmt.Sprintf("%s%c", name, sepr), K}
+	return &substore{fmt.Sprintf("%s%c", name, sepr), K, K}
 }
 
 // Counts keys in table.
@@ -241,18 +241,33 @@ func (K *boltDB) Unset(table, key string) (err error) {
 
 // Drops table
 func (K *boltDB) Drop(table string) (err error) {
-	err = K.db.Update(func(tx *bolt.Tx) error {
-		return tx.DeleteBucket([]byte(table))
-	})
-	if err == bolt.ErrBucketNotFound {
+	tmp, e := K.buckets(false)
+	if e != nil {
+		return e
+	}
+
+	var tables []string
+	for _, v := range tmp {
+		if strings.HasPrefix(v, fmt.Sprintf("%s%c", table, sepr)) || v == table {
+			tables = append(tables, v)
+		}
+	}
+
+	if len(tables) == 0 {
 		return nil
+	}
+
+	for _, v := range tables {
+		err = K.db.Update(func(tx *bolt.Tx) error {
+			return tx.DeleteBucket([]byte(v))
+		})
 	}
 	return
 }
 
 // Lists all tables
 func (K *boltDB) Tables() (tables []string, err error) {
-	tmp, e := K.Buckets(true)
+	tmp, e := K.buckets(true)
 	if e != nil {
 		return tables, e
 	}
@@ -335,7 +350,7 @@ func CryptReset(filename string) (err error) {
 
 	db.Set("KVLite", "Reset", true)
 
-	tables, err := db.Buckets(false)
+	tables, err := db.buckets(false)
 	if err != nil {
 		return err
 	}

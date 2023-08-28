@@ -8,6 +8,7 @@ import (
 type substore struct {
 	prefix string
 	db     Store
+	parent Store
 }
 
 const sepr = '\x1f'
@@ -18,12 +19,12 @@ func (d substore) apply_prefix(name string) string {
 }
 
 func (d *substore) Sub(name string) Store {
-	return &substore{fmt.Sprintf("%s%s%c", d.prefix, name, sepr), d.db}
+	return &substore{fmt.Sprintf("%s%s%c", d.prefix, name, sepr), d.db, d.parent}
 }
 
 // Creates a bucket with a common namespace.
-func (d *substore) Shared(name string) Store {
-	return &substore{fmt.Sprintf("__shared__%c%s%c", sepr, name, sepr), d.db}
+func (d *substore) NameSpace(name string) Store {
+	return d.parent.Sub(name)
 }
 
 func (d substore) Close() (err error) {
@@ -60,16 +61,16 @@ func (d substore) CountKeys(table string) (int, error) {
 	return d.db.CountKeys(d.apply_prefix(table))
 }
 
-func (d substore) Buckets(limit_depth bool) (buckets []string, err error) {
+func (d substore) buckets(limit_depth bool) (buckets []string, err error) {
 	bmap := make(map[string]struct{})
 
-	tmp, e := d.db.Buckets(false)
+	tmp, e := d.db.buckets(false)
 	if e != nil {
 		return buckets, e
 	}
 	for _, t := range tmp {
 		if strings.HasPrefix(t, d.prefix) {
-			if name := strings.TrimPrefix(t, d.prefix); strings.ContainsRune(name, sepr) {
+			name := strings.TrimPrefix(t, d.prefix)
 				if !limit_depth {
 					buckets = append(buckets, name)
 				} else {
@@ -79,7 +80,6 @@ func (d substore) Buckets(limit_depth bool) (buckets []string, err error) {
 						buckets = append(buckets, name)
 					}
 				}
-			}
 		}
 	}
 	return buckets, err
@@ -87,15 +87,13 @@ func (d substore) Buckets(limit_depth bool) (buckets []string, err error) {
 
 // List Tables in DB
 func (d substore) Tables() (buckets []string, err error) {
-	tmp, e := d.db.Buckets(false)
+	tmp, e := d.buckets(true)
 	if e != nil {
 		return buckets, e
 	}
 	for _, t := range tmp {
-		if strings.HasPrefix(t, d.prefix) {
-			if name := strings.TrimPrefix(t, d.prefix); !strings.ContainsRune(name, sepr) {
-				buckets = append(buckets, name)
-			}
+		if name := strings.TrimPrefix(t, d.prefix); !strings.ContainsRune(name, sepr) {
+			buckets = append(buckets, name)
 		}
 	}
 	return buckets, err

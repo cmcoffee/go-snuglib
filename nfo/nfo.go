@@ -55,6 +55,7 @@ var (
 	FatalOnExportError = true // Fatal on export/syslog error.
 	Animations         = true // Enable/Disable Flash Output
 	flush_line         []rune
+	flush_line_len     int
 	last_line          int
 	flush_needed       bool
 	piped_stdout       bool
@@ -477,18 +478,20 @@ func write2log(flag uint32, vars ...interface{}) {
 
 	// Clear out last flash text.
 	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
-		if bufferLen < last_line {
-			width := termWidth()
-			if width < 32 {
-				width = 32
-			}
+		width := termWidth()
+		if width < 32 {
+			width = 32
+		}
+
+		if flush_line_len < width {
 			for i := len(flush_line); i < width; i++ {
+				flush_line_len++
 				flush_line = append(flush_line[0:], ' ')
 			}
-			fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
-		} else {
-			fmt.Fprintf(os.Stderr, "\r")
+			
 		}
+		
+		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
 		flush_needed = false
 	}
 

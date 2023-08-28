@@ -18,16 +18,16 @@ func (K *memStore) Table(table string) Table {
 	return focused{table: table, store: K}
 }
 
-func (K *memStore) Shared(table string) Store {
-	return &substore{fmt.Sprintf("__shared__%c%s%c", sepr, table, sepr), K}
+func (K *memStore) NameSpace(table string) Store {
+	return &substore{fmt.Sprintf("%s%c", table, sepr), K, K}
 }
 
 // Changes bucket name.
 func (K *memStore) Sub(table string) Store {
-	return &substore{fmt.Sprintf("%s%c", table, sepr), K}
+	return &substore{fmt.Sprintf("%s%c", table, sepr), K, K}
 }
 
-func (K *memStore) Buckets(limit_depth bool) (buckets []string, err error) {
+func (K *memStore) buckets(limit_depth bool) (buckets []string, err error) {
 	K.mutex.RLock()
 	defer K.mutex.RUnlock()
 
@@ -59,7 +59,7 @@ func (K *memStore) Keys(table string) (keys []string, err error) {
 }
 
 func (K *memStore) Tables() (tables []string, err error) {
-	tmp, e := K.Buckets(true)
+	tmp, e := K.buckets(true)
 	if err != nil {
 		return tables, e
 	}
@@ -75,7 +75,11 @@ func (K *memStore) Drop(table string) (err error) {
 	K.mutex.Lock()
 	defer K.mutex.Unlock()
 
-	delete(K.kv, table)
+	for k, _ := range K.kv {
+		if strings.HasPrefix(k, fmt.Sprintf("%s%c", table, sepr)) || k == table {
+			delete(K.kv, k)
+		}
+	}
 	return nil
 }
 
