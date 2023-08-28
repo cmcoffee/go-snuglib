@@ -32,10 +32,9 @@ type Store interface {
 	Table(table string) Table
 	// SubStore Creates a new bucket with a different namespace.
 	Sub(name string) Store
-	// Buckets lists all bucket namespaces, limit_depth limits to first-level buckets
-	Buckets(limit_depth bool) (stores []string, err error)
+
 	// SyncStore Creates a new bucket for shared tenants.
-	Shared(name string) Store
+	NameSpace(name string) Store
 	// Drop drops the specified table.
 	Drop(table string) (err error)
 	// CountKeys provides a total of keys in table.
@@ -52,6 +51,7 @@ type Store interface {
 	Get(table, key string, output interface{}) (found bool, err error)
 	// Close closes the kvliter.Store.
 	Close() (err error)
+	// contains filtered or unexported methods
 }
 ```
 

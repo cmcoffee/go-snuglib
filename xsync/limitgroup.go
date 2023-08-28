@@ -5,7 +5,6 @@ package xsync
 
 import "sync"
 
-
 type limitGroup struct {
 	wg      sync.WaitGroup
 	limiter chan struct{}

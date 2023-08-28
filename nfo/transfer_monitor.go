@@ -62,14 +62,14 @@ func TransferCounter(input ReadSeekCloser, counter func(int)) ReadSeekCloser {
 
 // Add Transfer to transferDisplay.
 // Parameters are "name" displayed for file transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and "total_sz" the total size of the transfer.
-func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser, optional_prefix...string) ReadSeekCloser {
+func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser, optional_prefix ...string) ReadSeekCloser {
 	transferDisplay.update_lock.Lock()
 	defer transferDisplay.update_lock.Unlock()
 
 	var (
 		short_name  []rune
 		target_size int
-		prefix string
+		prefix      string
 	)
 
 	if len(optional_prefix) > 0 {

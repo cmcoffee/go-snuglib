@@ -71,15 +71,15 @@ func (d substore) buckets(limit_depth bool) (buckets []string, err error) {
 	for _, t := range tmp {
 		if strings.HasPrefix(t, d.prefix) {
 			name := strings.TrimPrefix(t, d.prefix)
-				if !limit_depth {
+			if !limit_depth {
+				buckets = append(buckets, name)
+			} else {
+				name = strings.Split(name, string(sepr))[0]
+				if _, ok := bmap[name]; !ok {
+					bmap[name] = struct{}{}
 					buckets = append(buckets, name)
-				} else {
-					name = strings.Split(name, string(sepr))[0]
-					if _, ok := bmap[name]; !ok {
-						bmap[name] = struct{}{}
-						buckets = append(buckets, name)
-					}
 				}
+			}
 		}
 	}
 	return buckets, err

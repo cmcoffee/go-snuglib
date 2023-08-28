@@ -488,9 +488,9 @@ func write2log(flag uint32, vars ...interface{}) {
 				flush_line_len++
 				flush_line = append(flush_line[0:], ' ')
 			}
-			
+
 		}
-		
+
 		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
 		flush_needed = false
 	}

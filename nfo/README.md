@@ -315,6 +315,13 @@ func ShowTS(flag ...uint32)
 ```
 Enable Timestamp on output.
 
+#### func  ShutdownInProgress
+
+```go
+func ShutdownInProgress() bool
+```
+Check if system is currently in shutdown.
+
 #### func  SignalCallback
 
 ```go
@@ -402,7 +409,7 @@ during read.
 #### func  TransferMonitor
 
 ```go
-func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser) ReadSeekCloser
+func TransferMonitor(name string, total_size int64, flag int, source ReadSeekCloser, optional_prefix ...string) ReadSeekCloser
 ```
 Add Transfer to transferDisplay. Parameters are "name" displayed for file
 transfer, "limit_sz" for when to pause transfer (aka between calls/chunks), and
