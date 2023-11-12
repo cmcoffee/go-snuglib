@@ -26,10 +26,10 @@ const (
 	DEBUG              // Debug Logging
 	TRACE              // Trace Logging
 	FATAL              // Fatal Logging
-	AUX                // Auxilary Log
-	AUX2               // Auxilary Log
-	AUX3               // Auxilary Log
-	AUX4               // Auxilary Log
+	AUX                // Auxiliary Log
+	AUX2               // Auxiliary Log
+	AUX3               // Auxiliary Log
+	AUX4               // Auxiliary Log
 	_flash_txt
 	_print_txt
 	_stderr_txt
@@ -354,22 +354,22 @@ func Notice(vars ...interface{}) {
 	write2log(NOTICE, vars...)
 }
 
-// Log as Info, as auxilary output.
+// Log as Info, as auxiliary output.
 func Aux(vars ...interface{}) {
 	write2log(AUX, vars...)
 }
 
-// Log as Info, as auxilary output.
+// Log as Info, as auxiliary output.
 func Aux2(vars ...interface{}) {
 	write2log(AUX2, vars...)
 }
 
-// Log as Info, as auxilary output.
+// Log as Info, as auxiliary output.
 func Aux3(vars ...interface{}) {
 	write2log(AUX3, vars...)
 }
 
-// Log as Info, as auxilary output.
+// Log as Info, as auxiliary output.
 func Aux4(vars ...interface{}) {
 	write2log(AUX4, vars...)
 }

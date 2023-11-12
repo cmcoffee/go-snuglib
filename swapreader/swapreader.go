@@ -43,13 +43,13 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 			}
 		}
 
-		transfered := len(r.decoder_bytes) - r.decoder_copied
+		transferred := len(r.decoder_bytes) - r.decoder_copied
 
-		if transfered == 0 {
+		if transferred == 0 {
 			err = io.EOF
 		}
 
-		return buffer_len - transfered, err
+		return buffer_len - transferred, err
 	} else {
 		return r.Read(p)
 	}

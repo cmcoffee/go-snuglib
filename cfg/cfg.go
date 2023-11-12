@@ -237,7 +237,7 @@ func (s *Store) Sections() (out []string) {
 		return []string{empty}
 	}
 
-	for section, _ := range s.cfgStore {
+	for section := range s.cfgStore {
 		out = append(out, section)
 	}
 	sort.Strings(out)
@@ -252,7 +252,7 @@ func (s *Store) Keys(section string) (out []string) {
 	if v, ok := s.cfgStore[section]; !ok {
 		return []string{empty}
 	} else {
-		for key, _ := range v {
+		for key := range v {
 			out = append(out, key)
 		}
 	}
@@ -407,7 +407,7 @@ func cleanSplit(input string, sepr rune, instances int) (out []string) {
 		}
 	}
 
-	for n, _ := range out {
+	for n := range out {
 		olen := len(out[n])
 		if olen > 0 {
 			if rune(out[n][0]) == sepr {
@@ -605,7 +605,7 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 				continue
 			}
 
-			// Record the begining of the next section
+			// Record the beginning of the next section
 			if strings.HasPrefix(b, "[") {
 				if strings.HasPrefix(b, "["+section+"]") {
 					upper = line - 1
@@ -633,7 +633,7 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 			return err
 		}
 		spacer := make([]byte, len(k+" = "))
-		for n, _ := range spacer {
+		for n := range spacer {
 			spacer[n] = ' '
 		}
 		vlen := len(v)
@@ -747,7 +747,7 @@ func (s *Store) save(clear_unused_keys bool, sections ...string) error {
 
 			var all_keys []string
 
-			for key, _ := range s.cfgStore[section] {
+			for key := range s.cfgStore[section] {
 				all_keys = append(all_keys, key)
 			}
 			sort.Strings(all_keys)

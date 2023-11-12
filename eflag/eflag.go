@@ -126,14 +126,14 @@ func escape_array(input []string) string {
 
 func (A *multiValue) Get() interface{} { return []string(*A.value) }
 
-// Array variable, ie.. comma-seperated values --flag="test","test2"
+// Array variable, ie.. comma-separated values --flag="test","test2"
 func (E *EFlagSet) Multi(name string, value string, usage string) *[]string {
 	output := new([]string)
 	E.MultiVar(output, name, value, usage)
 	return output
 }
 
-// Array variable, ie.. comma-seperated values --flag="test","test2"
+// Array variable, ie.. comma-separated values --flag="test","test2"
 func (E *EFlagSet) MultiVar(p *[]string, name string, value string, usage string) {
 	*p = string_split(value)
 
@@ -142,7 +142,7 @@ func (E *EFlagSet) MultiVar(p *[]string, name string, value string, usage string
 	}
 
 	if len(usage) > 0 {
-		usage = fmt.Sprintf("%s (multi: comma-seperated)", usage)
+		usage = fmt.Sprintf("%s (multi: comma-separated)", usage)
 	}
 	E.Var(&v, name, usage)
 }
@@ -574,7 +574,7 @@ func (s *EFlagSet) Parse(args []string) (err error) {
 					} else if i == len(s.argMap)-1 {
 						v.Set(strings.Join(txt_args[num:], ","))
 						num = txt_len - 1
-						// Somwhere in the middle.
+						// Somewhere in the middle.
 					} else {
 						if x := txt_len - num; x > 1 {
 							v.Set(strings.Join(txt_args[num:txt_len-1], ","))

@@ -108,16 +108,16 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 	b_flag.Set(trans_active)
 
 	tm := &tmon{
-		flag:       b_flag,
-		name:       name,
-		prefix:     prefix,
-		short_name: string(short_name),
-		total_size: total_size,
-		transfered: 0,
-		offset:     0,
-		rate:       "0.0bps",
-		start_time: time.Now(),
-		source:     source,
+		flag:        b_flag,
+		name:        name,
+		prefix:      prefix,
+		short_name:  string(short_name),
+		total_size:  total_size,
+		transferred: 0,
+		offset:      0,
+		rate:        "0.0bps",
+		start_time:  time.Now(),
+		source:      source,
 	}
 
 	var spin_index int
@@ -183,7 +183,7 @@ func TransferMonitor(name string, total_size int64, flag int, source ReadSeekClo
 // Wrapper Seeker
 func (tm *tmon) Seek(offset int64, whence int) (int64, error) {
 	o, err := tm.source.Seek(offset, whence)
-	tm.transfered = o
+	tm.transferred = o
 	tm.offset = o
 	return o, err
 }
@@ -191,13 +191,13 @@ func (tm *tmon) Seek(offset int64, whence int) (int64, error) {
 // Wrapped Reader
 func (tm *tmon) Read(p []byte) (n int, err error) {
 	n, err = tm.source.Read(p)
-	atomic.StoreInt64(&tm.transfered, atomic.LoadInt64(&tm.transfered)+int64(n))
+	atomic.StoreInt64(&tm.transferred, atomic.LoadInt64(&tm.transferred)+int64(n))
 	if err != nil {
 		if tm.flag.Has(trans_closed) {
 			return
 		}
 		tm.flag.Set(trans_closed | trans_error)
-		if tm.transfered == 0 {
+		if tm.transferred == 0 {
 			return
 		}
 	}
@@ -208,7 +208,7 @@ func (tm *tmon) Read(p []byte) (n int, err error) {
 func (tm *tmon) Close() error {
 	tm.flag.Set(trans_closed)
 	if !tm.flag.Has(NoRate) {
-		if tm.transfered > 0 || tm.total_size == 0 {
+		if tm.transferred > 0 || tm.total_size == 0 {
 			Log(tm.showTransfer(true))
 		}
 	}
@@ -225,22 +225,22 @@ func spacePrint(min int, input string) string {
 
 // Transfer Monitor
 type tmon struct {
-	flag       BitFlag
-	prefix     string
-	name       string
-	short_name string
-	total_size int64
-	transfered int64
-	offset     int64
-	rate       string
-	chunk_size int64
-	start_time time.Time
-	source     ReadSeekCloser
+	flag        BitFlag
+	prefix      string
+	name        string
+	short_name  string
+	total_size  int64
+	transferred int64
+	offset      int64
+	rate        string
+	chunk_size  int64
+	start_time  time.Time
+	source      ReadSeekCloser
 }
 
 // Outputs progress of TMonitor.
 func (t *tmon) showTransfer(summary bool) string {
-	transfered := atomic.LoadInt64(&t.transfered)
+	transferred := atomic.LoadInt64(&t.transferred)
 	rate := t.showRate()
 
 	var name string
@@ -257,18 +257,18 @@ func (t *tmon) showTransfer(summary bool) string {
 		if !t.flag.Has(NoRate) {
 			return fmt.Sprintf("%s", t.progressBar(name))
 		} else {
-			return DrawProgressBar(19, t.transfered, t.total_size, t.name)
+			return DrawProgressBar(19, t.transferred, t.total_size, t.name)
 		}
 	} else {
-		return fmt.Sprintf("%s: %s (%s) ", t.name, rate, HumanSize(transfered))
+		return fmt.Sprintf("%s: %s (%s) ", t.name, rate, HumanSize(transferred))
 	}
 }
 
 // Provides average rate of transfer.
 func (t *tmon) showRate() (rate string) {
 
-	transfered := atomic.LoadInt64(&t.transfered)
-	if transfered == 0 || t.flag.Has(trans_complete) {
+	transferred := atomic.LoadInt64(&t.transferred)
+	if transferred == 0 || t.flag.Has(trans_complete) {
 		return t.rate
 	}
 
@@ -277,7 +277,7 @@ func (t *tmon) showRate() (rate string) {
 		since = 0.1
 	}
 
-	sz := float64(transfered-t.offset) * 8 / since
+	sz := float64(transferred-t.offset) * 8 / since
 
 	names := []string{
 		"bps",
@@ -305,7 +305,7 @@ func (t *tmon) showRate() (rate string) {
 
 	t.rate = rate
 
-	if !t.flag.Has(trans_complete) && atomic.LoadInt64(&t.transfered)+t.offset == t.total_size {
+	if !t.flag.Has(trans_complete) && atomic.LoadInt64(&t.transferred)+t.offset == t.total_size {
 		t.flag.Set(trans_complete)
 	}
 
@@ -344,7 +344,7 @@ func DrawProgressBar(sz int, current, max int64, text string) string {
 
 // Produces progress bar for information on update.
 func (t *tmon) progressBar(name string) string {
-	num := int((float64(atomic.LoadInt64(&t.transfered)) / float64(t.total_size)) * 100)
+	num := int((float64(atomic.LoadInt64(&t.transferred)) / float64(t.total_size)) * 100)
 
 	if t.total_size == 0 {
 		num = 100
@@ -353,7 +353,7 @@ func (t *tmon) progressBar(name string) string {
 	sz := termWidth() - 3
 
 	first_half := fmt.Sprintf("%s: %s", name, t.showRate())
-	second_half := fmt.Sprintf("(%s/%s)", HumanSize(t.transfered), HumanSize(t.total_size))
+	second_half := fmt.Sprintf("(%s/%s)", HumanSize(t.transferred), HumanSize(t.total_size))
 
 	sz = sz - len(first_half) - 35
 

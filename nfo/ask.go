@@ -31,7 +31,7 @@ func PressEnter(prompt string) {
 	fmt.Printf("\r%s", prompt)
 
 	var blank_line []rune
-	for _ = range prompt {
+	for range prompt {
 		blank_line = append(blank_line, ' ')
 	}
 	terminal.ReadPassword(int(syscall.Stdin))

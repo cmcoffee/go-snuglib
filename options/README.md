@@ -44,7 +44,7 @@ which to store the value of the option.
 func (O *Options) Func(desc string, value func() bool)
 ```
 Func defined a function within the option menu, the function should return a
-bool variable telling the Options menu if a change has occured.
+bool variable telling the Options menu if a change has occurred.
 
 #### func (*Options) Int
 
@@ -64,10 +64,10 @@ func (O *Options) IntVar(p *int, desc string, value int, help string, min, max i
 #### func (*Options) Options
 
 ```go
-func (O *Options) Options(desc string, value *Options, seperate_last bool)
+func (O *Options) Options(desc string, value *Options, separate_last bool)
 ```
 Option defines an nested Options menu option displaying with specified desc in
-menu, seperate_last will seperate the last menu option within the sub Options
+menu, separate_last will separate the last menu option within the sub Options
 when selected.
 
 #### func (*Options) Register
@@ -80,9 +80,9 @@ Registers an Value with Options Menu
 #### func (*Options) Select
 
 ```go
-func (T *Options) Select(seperate_last bool) (changed bool)
+func (T *Options) Select(separate_last bool) (changed bool)
 ```
-Show Options Menu, if seperate_last = true, the last menu item will be dropped
+Show Options Menu, if separate_last = true, the last menu item will be dropped
 one line, and it's select number will be 0, seperating it from the rest.
 
 #### func (*Options) String

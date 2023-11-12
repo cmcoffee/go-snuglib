@@ -15,10 +15,10 @@ const (
 	DEBUG              // Debug Logging
 	TRACE              // Trace Logging
 	FATAL              // Fatal Logging
-	AUX                // Auxilary Log
-	AUX2               // Auxilary Log
-	AUX3               // Auxilary Log
-	AUX4               // Auxilary Log
+	AUX                // Auxiliary Log
+	AUX2               // Auxiliary Log
+	AUX3               // Auxiliary Log
+	AUX4               // Auxiliary Log
 
 )
 ```
@@ -68,28 +68,28 @@ var ProgressBar = new(progressBar)
 ```go
 func Aux(vars ...interface{})
 ```
-Log as Info, as auxilary output.
+Log as Info, as auxiliary output.
 
 #### func  Aux2
 
 ```go
 func Aux2(vars ...interface{})
 ```
-Log as Info, as auxilary output.
+Log as Info, as auxiliary output.
 
 #### func  Aux3
 
 ```go
 func Aux3(vars ...interface{})
 ```
-Log as Info, as auxilary output.
+Log as Info, as auxiliary output.
 
 #### func  Aux4
 
 ```go
 func Aux4(vars ...interface{})
 ```
-Log as Info, as auxilary output.
+Log as Info, as auxiliary output.
 
 #### func  BlockShutdown
 

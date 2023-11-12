@@ -41,8 +41,8 @@ func (T *Options) Register(input Value) {
 	T.config = append(T.config, input)
 }
 
-// Show Options Menu, if seperate_last = true, the last menu item will be dropped one line, and it's select number will be 0, seperating it from the rest.
-func (T *Options) Select(seperate_last bool) (changed bool) {
+// Show Options Menu, if separate_last = true, the last menu item will be dropped one line, and it's select number will be 0, seperating it from the rest.
+func (T *Options) Select(separate_last bool) (changed bool) {
 	var text_buffer bytes.Buffer
 	txt := tabwriter.NewWriter(&text_buffer, 1, 8, 1, ' ', 0)
 
@@ -65,7 +65,7 @@ func (T *Options) Select(seperate_last bool) (changed bool) {
 		config_len := len(T.config) - 1
 
 		for i := 0; i <= config_len; i++ {
-			if i == config_len && config_len > 0 && seperate_last {
+			if i == config_len && config_len > 0 && separate_last {
 				config_map[0] = T.config[config_len]
 				fmt.Fprintf(txt, "\t\n")
 				fmt.Fprintf(txt, " [0] %s\n", T.config[config_len].String())
@@ -111,7 +111,7 @@ func (T *Options) Select(seperate_last bool) (changed bool) {
 func showVar(input string, mask bool) string {
 	hide_value := func(input string) string {
 		var str []rune
-		for _ = range input {
+		for range input {
 			str = append(str, '*')
 		}
 		return string(str)
@@ -195,16 +195,16 @@ func (O *Options) IntVar(p *int, desc string, value int, help string, min, max i
 	})
 }
 
-// Option defines an nested Options menu option displaying with specified desc in menu, seperate_last will seperate the last menu option within the sub Options when selected.
-func (O *Options) Options(desc string, value *Options, seperate_last bool) {
+// Option defines an nested Options menu option displaying with specified desc in menu, separate_last will separate the last menu option within the sub Options when selected.
+func (O *Options) Options(desc string, value *Options, separate_last bool) {
 	O.Register(&optionsValue{
 		desc:          desc,
 		value:         value,
-		seperate_last: seperate_last,
+		separate_last: separate_last,
 	})
 }
 
-// Func defined a function within the option menu, the function should return a bool variable telling the Options menu if a change has occured.
+// Func defined a function within the option menu, the function should return a bool variable telling the Options menu if a change has occurred.
 func (O *Options) Func(desc string, value func() bool) {
 	O.Register(&funcValue{
 		desc:  desc,
@@ -321,13 +321,13 @@ func (I *intValue) String() string {
 // Nested Options.
 type optionsValue struct {
 	desc          string
-	seperate_last bool
+	separate_last bool
 	value         *Options
 }
 
 func (O *optionsValue) Set() bool {
 	Stdout("\n")
-	return O.value.Select(O.seperate_last)
+	return O.value.Select(O.separate_last)
 }
 
 func (O *optionsValue) Get() interface{} {

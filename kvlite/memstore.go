@@ -34,7 +34,7 @@ func (K *memStore) buckets(limit_depth bool) (buckets []string, err error) {
 
 	bmap := make(map[string]struct{})
 
-	for k, _ := range K.kv {
+	for k := range K.kv {
 		if !limit_depth {
 			buckets = append(buckets, k)
 		} else {
@@ -52,7 +52,7 @@ func (K *memStore) Keys(table string) (keys []string, err error) {
 	K.mutex.RLock()
 	defer K.mutex.RUnlock()
 	if t, ok := K.kv[table]; ok {
-		for k, _ := range t {
+		for k := range t {
 			keys = append(keys, k)
 		}
 	}
@@ -76,7 +76,7 @@ func (K *memStore) Drop(table string) (err error) {
 	K.mutex.Lock()
 	defer K.mutex.Unlock()
 
-	for k, _ := range K.kv {
+	for k := range K.kv {
 		if strings.HasPrefix(k, fmt.Sprintf("%s%c", table, sepr)) || k == table {
 			delete(K.kv, k)
 		}
@@ -154,7 +154,7 @@ func (K *memStore) set(table, key string, value interface{}, encrypt_value bool)
 func (K *memStore) Close() (err error) {
 	K.mutex.Lock()
 	defer K.mutex.Unlock()
-	for k, _ := range K.kv {
+	for k := range K.kv {
 		delete(K.kv, k)
 	}
 	return nil

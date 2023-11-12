@@ -144,14 +144,14 @@ func (s *EFlagSet) IsSet(name string) bool
 ```go
 func (E *EFlagSet) Multi(name string, value string, usage string) *[]string
 ```
-Array variable, ie.. comma-seperated values --flag="test","test2"
+Array variable, ie.. comma-separated values --flag="test","test2"
 
 #### func (*EFlagSet) MultiVar
 
 ```go
 func (E *EFlagSet) MultiVar(p *[]string, name string, value string, usage string)
 ```
-Array variable, ie.. comma-seperated values --flag="test","test2"
+Array variable, ie.. comma-separated values --flag="test","test2"
 
 #### func (*EFlagSet) Order
 
