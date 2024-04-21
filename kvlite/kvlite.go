@@ -441,6 +441,6 @@ func Open(filename string, padlock ...byte) (Store, error) {
 		db.Close()
 		return nil, err
 	}
-	err = db.Set("KVLite", "X", &X)
+	//err = db.Set("KVLite", "X", &X)
 	return db, err
 }
