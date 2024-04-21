@@ -56,6 +56,7 @@ var (
 	Animations         = true // Enable/Disable Flash Output
 	flush_line         []rune
 	flush_line_len     int
+	last_flash_len     int
 	last_line          int
 	flush_needed       bool
 	piped_stdout       bool
@@ -478,20 +479,16 @@ func write2log(flag uint32, vars ...interface{}) {
 
 	// Clear out last flash text.
 	if flush_needed && !piped_stderr && ((logger.textout == os.Stdout && !piped_stdout) || logger.textout == os.Stderr) {
-		width := termWidth()
-		if width < 32 {
-			width = 32
-		}
-
-		if flush_line_len < width {
-			for i := len(flush_line); i < width; i++ {
+		if flush_line_len < last_flash_len {
+			for i := len(flush_line); i < last_flash_len; i++ {
 				flush_line_len++
 				flush_line = append(flush_line[0:], ' ')
 			}
 
 		}
-
-		fmt.Fprintf(os.Stderr, "\r%s\r", string(flush_line[0:width-1]))
+		fmt.Fprintf(os.Stderr, "\r")
+		fmt.Fprintf(os.Stderr, "%s", string(flush_line[0:last_flash_len]))
+		fmt.Fprintf(os.Stderr, "\r")
 		flush_needed = false
 	}
 
@@ -506,6 +503,7 @@ func write2log(flag uint32, vars ...interface{}) {
 			}
 			io.Copy(os.Stderr, bytes.NewReader(output))
 			flush_needed = true
+			last_flash_len = len(output)
 			return
 		}
 		return

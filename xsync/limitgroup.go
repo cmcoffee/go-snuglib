@@ -1,5 +1,5 @@
 /*
-	LimitGroup is a sync.WaitGroup combined with a limiter, to limit how many threads are created.
+LimitGroup is a sync.WaitGroup combined with a limiter, to limit how many threads are created.
 */
 package xsync
 

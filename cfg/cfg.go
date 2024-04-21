@@ -1,18 +1,20 @@
-/* Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
-   Ignores '#' as comments, ','s denote multiple values.
+/*
+Package 'cfg' provides functions for reading and writing configuration files and their coresponding string values.
 
-   # Example config file.
-   [section]
-   key = value
-   key2 = value1, value2
-   key3 = value1,
-          value2,
-          value3
+	Ignores '#' as comments, ','s denote multiple values.
 
-   [section2]
-   key = value1,
-         value2,
-         value3
+	# Example config file.
+	[section]
+	key = value
+	key2 = value1, value2
+	key3 = value1,
+	       value2,
+	       value3
+
+	[section2]
+	key = value1,
+	      value2,
+	      value3
 */
 package cfg
 

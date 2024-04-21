@@ -28,6 +28,9 @@ type ReadSeekCloser interface {
 func termWidth() int {
 	width, _, _ := terminal.GetSize(int(syscall.Stderr))
 	width--
+	if width < 1 {
+		width = 0
+	}
 	return width
 }
 
